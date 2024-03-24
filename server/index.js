@@ -96,7 +96,16 @@ app.post('/signup', async (req, res) => {
     });
   })
   
+  app.get("/allBlogs", async(req, res)=>{
+    const blogsCollection = mongoConnection.getCollection('blogs');
+    const allBlogs = await blogsCollection.find({}).toArray();
 
+    res.json({
+        success: true,
+        message: "All Blogs fetched successfully",
+        data: allBlogs
+    })
+})
 
 
 
