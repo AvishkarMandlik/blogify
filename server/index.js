@@ -27,7 +27,33 @@ app.post('/signup', async (req, res) => {
   })});
 
 
+  app.post('/login', async (req, res) => {
+    const { username, email, password } = req.body;
+    const usersCollection = mongoConnection.getCollection('users');
+  
+    let user;
 
+  
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+  
+    if (!isPasswordValid) {
+      return res.json({
+        success: false,
+        message: "Incorrect password",
+      });
+    }
+  
+    res.json({
+      success: true,
+      message: "Logged in successfully",
+      data: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  });
 
 
 
