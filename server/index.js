@@ -32,7 +32,18 @@ app.post('/signup', async (req, res) => {
     const usersCollection = mongoConnection.getCollection('users');
   
     let user;
-
+    if (username) {
+      user = await usersCollection.findOne({ username });
+    } else if (email) {
+      user = await usersCollection.findOne({ email });
+    }
+  
+    if (!user) {
+      return res.json({
+        success: false,
+        message: "Incorrect email or username",
+      });
+    }
   
     const isPasswordValid = await bcrypt.compare(password, user.password);
   
