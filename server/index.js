@@ -10,13 +10,20 @@ app.post('/signup', async (req, res) => {
   const { username,email, password,role } = req.body;
   const usersCollection = mongoConnection.getCollection('users');
 
-  const existingUser = await usersCollection.findOne({ email});
-  if (existingUser) {
+  const existingUsername = await usersCollection.findOne({ email});
+  if (existingUsername) {
     return res.json({
       success: false,
       message: "Email already exists"
   })
   }
+  const existingEmail = await usersCollection.findOne({ username});
+  if (existingEmail) {
+    return res.json({
+      success: false,
+      message: "Username already exists"
+  })
+}
   const hashedPassword = await bcrypt.hash(password, 10);
   await usersCollection.insertOne({ username,email, role, password: hashedPassword });
   const savedUser =  { username,email, role, password: hashedPassword }
@@ -66,6 +73,29 @@ app.post('/signup', async (req, res) => {
     });
   });
 
+  app.post("/createBlogs", async(req,res)=>{
+    const {title, imgUrl, description, category, author} = req.body;
+    const blogsCollection = mongoConnection.getCollection('blogs');
+    const existingBlog = await blogsCollection.findOne({title});
+    if(existingBlog){
+      return res.json({ message: 'Blog already exists' });
+  
+    }
+    const savedBlog = await blogsCollection.insertOne({title, imgUrl, description, category, author });
+
+    res.json({
+      success: true,
+      message: "BLOG added successfully",
+      data: {
+        title: title,
+        imgUrl: imgUrl,
+        description: description,
+        category: category,
+        author: author,
+      },
+    });
+  })
+  
 
 
 
