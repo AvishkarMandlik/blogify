@@ -107,7 +107,28 @@ app.post('/signup', async (req, res) => {
     })
 })
 
+app.get('/Blogsbytitle', async (req, res) => {
+  const blogsCollection = mongoConnection.getCollection('blogs');
+  const title = req.query.title;
 
+  const titleRegex = new RegExp(title, 'i');
+
+  const foundBlog = await blogsCollection.findOne({ title: titleRegex });
+
+  if (foundBlog) {
+    res.json({
+      success: true,
+      message: 'Blog fetched successfully',
+      data: foundBlog,
+    });
+  } else {
+    res.json({
+      success: false,
+      message: 'No blog found for this title',
+      data: null,
+    });
+  }
+});
 
 
 app.use(express.static(path.join(__dirname, '..', 'client', 'build')));
