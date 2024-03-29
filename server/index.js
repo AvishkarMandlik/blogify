@@ -96,6 +96,8 @@ app.post('/signup', async (req, res) => {
     });
   })
   
+
+  
   app.get("/allBlogs", async(req, res)=>{
     const blogsCollection = mongoConnection.getCollection('blogs');
     const allBlogs = await blogsCollection.find({}).toArray();
@@ -113,7 +115,7 @@ app.get('/Blogsbytitle', async (req, res) => {
 
   const titleRegex = new RegExp(title, 'i');
 
-  const foundBlog = await blogsCollection.findOne({ title: titleRegex });
+  const foundBlog = await blogsCollection.find({ title: titleRegex }).toArray();
 
   if (foundBlog) {
     res.json({
