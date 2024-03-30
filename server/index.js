@@ -74,26 +74,25 @@ app.post('/signup', async (req, res) => {
   });
 
   app.post("/createBlogs", async(req,res)=>{
-    const {title, imgUrl, description, category, author} = req.body;
+    const {title, imgUrl, description, category, content, author} = req.body;
     const blogsCollection = mongoConnection.getCollection('blogs');
     const existingBlog = await blogsCollection.findOne({title});
     if(existingBlog){
       return res.json({ message: 'Blog already exists' });
   
     }
-    const savedBlog = await blogsCollection.insertOne({title, imgUrl, description, category, author });
+    const savedBlog = await blogsCollection.insertOne({title, imgUrl, description, category, author, content });
 
     res.json({
       success: true,
-      message: "BLOG added successfully",
-      data: {
-        title: title,
-        imgUrl: imgUrl,
-        description: description,
-        category: category,
-        author: author,
-      },
+      message: "BLOG added successfully"
     });
+  })
+  app.post("/Blog", async(req,res)=>{
+    const {title} = req.body;
+    const blogsCollection = mongoConnection.getCollection('blogs');
+    const Blog = await blogsCollection.findOne({title});
+    res.json(Blog)
   })
   
 
