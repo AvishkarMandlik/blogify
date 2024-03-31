@@ -1,6 +1,12 @@
 import React from 'react';
+import axios from 'axios';
 
-function BlogCard({title,imgUrl,description,category,author}) {
+function BlogCardDashboard({title,imgUrl,description,category,author}) {
+      async function dltblog(){
+            const resp = await axios.delete("/deleteBlog?title="+title);
+            alert(resp.data.message);
+            window.location.reload();
+      }
 
   return (
         <div className='my-3'>
@@ -11,6 +17,7 @@ function BlogCard({title,imgUrl,description,category,author}) {
                   <h5 className="card-title">{title}</h5>
                   <p className="card-text">{description}</p>
             <span>{category}</span>
+            <button type="button" className='logout btn btn-primary bg-dark' onClick={dltblog}>Delete</button>
             {/* <p className="card-text"><small className="text-muted">By {!author?"Unknown":author} on {new Date().toGMTString()}</small></p> */}
             </div>
         </div>
@@ -18,4 +25,4 @@ function BlogCard({title,imgUrl,description,category,author}) {
   )
 }
 
-export default BlogCard
+export default BlogCardDashboard
