@@ -88,14 +88,13 @@ app.post('/signup', async (req, res) => {
       message: "BLOG added successfully"
     });
   })
-  app.post("/Blog", async(req,res)=>{
+
+  app.post("/BlogContent", async(req,res)=>{
     const {title} = req.body;
     const blogsCollection = mongoConnection.getCollection('blogs');
     const Blog = await blogsCollection.findOne({title});
     res.json(Blog)
   })
-  
-
   
   app.get("/allBlogs", async(req, res)=>{
     const blogsCollection = mongoConnection.getCollection('blogs');
