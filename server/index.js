@@ -73,6 +73,7 @@ app.post('/signup', async (req, res) => {
     });
   });
 
+  
   app.post("/createBlogs", async(req,res)=>{
     const {title, imgUrl, description, category, content, author} = req.body;
     const blogsCollection = mongoConnection.getCollection('blogs');
@@ -88,6 +89,7 @@ app.post('/signup', async (req, res) => {
       message: "BLOG added successfully"
     });
   })
+
 
   app.post("/BlogContent", async(req,res)=>{
     const {title} = req.body;
@@ -106,6 +108,7 @@ app.post('/signup', async (req, res) => {
         data: allBlogs
     })
 })
+
 
 app.get('/Blogsbytitle', async (req, res) => {
   const blogsCollection = mongoConnection.getCollection('blogs');
@@ -129,6 +132,30 @@ app.get('/Blogsbytitle', async (req, res) => {
     });
   }
 });
+
+
+app.get('/BlogsbyUsername', async (req, res) => {
+  const blogsCollection = mongoConnection.getCollection('blogs');
+  const Username = req.query.username;
+
+
+  const foundBlog = await blogsCollection.find({ author: Username }).toArray();
+
+  if (foundBlog) {
+    res.json({
+      success: true,
+      message: 'Blog fetched successfully',
+      data: foundBlog,
+    });
+  } else {
+    res.json({
+      success: false,
+      message: 'No blog found for this user',
+      data: null,
+    });
+  }
+});
+
 
 
 app.use(express.static(path.join(__dirname, '..', 'client', 'build')));
