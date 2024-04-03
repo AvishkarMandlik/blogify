@@ -157,6 +157,25 @@ app.get('/BlogsbyUsername', async (req, res) => {
 });
 
 
+app.delete('/deleteBlog', async (req, res) => {
+  const blogsCollection = mongoConnection.getCollection('blogs');
+  const title = req.query.title;
+
+
+  const foundBlog = await blogsCollection.deleteOne({ title: title });
+
+  if (foundBlog) {
+    res.json({
+      success: true,
+      message: 'Blog deleted successfully'
+    });
+  } else {
+    res.json({
+      success: false,
+      message: 'No blog found for this user'
+    });
+  }
+});
 
 app.use(express.static(path.join(__dirname, '..', 'client', 'build')));
 
