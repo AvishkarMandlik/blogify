@@ -4,7 +4,7 @@ import { currentUser } from "./currentUser";
 
 export async function loginRequired() {
   if (!currentUser) {
-    await swal({
+    await swal.fire({
       title: "Login Required",
       text: "Please login to continue",
       icon: "warning",
