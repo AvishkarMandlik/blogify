@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const app = express();
 const PORT = 5000;
 const path = require('path');
+const __dirname = path.resolve();
 app.use(express.json());
 
 app.post('/signup', async (req, res) => {
