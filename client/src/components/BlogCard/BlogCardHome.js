@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 function BlogCardHome({title, imgUrl, description, category, author}) {
   return (
     <div className='my-3'>
-      <Link to={{ pathname: "/blog", search: `?title=${encodeURIComponent(title)}` }} style={{ textDecoration: 'none' }}>
+      <Link to={{ pathname: "/BlogContent", search: `?title=${encodeURIComponent(title)}` }} style={{ textDecoration: 'none' }}>
         <div className="card shadow-sm bg-body rounded" style={{cursor: "pointer"}}>
           <span className="position-absolute top-0 translate-middle badge rounded-pill bg-secondary" style={{left:"90%", zIndex:"1"}}>{author}</span>
           <img src={!imgUrl ? "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSj1cbtHrCxTGHJ4la-6fBeY670i0Drg92lUg&usqp=CAU" : imgUrl} className="card-img-top" style={{height: "17rem"}} alt="..." />
