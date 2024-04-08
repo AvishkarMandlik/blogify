@@ -1,13 +1,30 @@
 import React from 'react';
 import axios from 'axios';
+import Swal from 'sweetalert2';
 
 function BlogCardDashboard({title,imgUrl,description,category,author}) {
       async function dltblog(){
             const resp = await axios.delete("/deleteBlog?title="+title);
-            alert(resp.data.message);
-            window.location.reload();
-      }
 
+            Swal.fire({
+              title: "Are you sure?",
+              text: resp.data.message,
+              icon: "warning",
+              showCancelButton: true,
+              confirmButtonColor: "#3085d6",
+              cancelButtonColor: "#d33",
+              confirmButtonText: "Yes, delete it!"
+            }).then((resp) => {
+              if (resp.isConfirmed) {
+                Swal.fire({
+                  title: "Deleted!",
+                  text: "Your file has been deleted.",
+                  icon: "success"
+                });
+                window.location.reload();
+              }
+            });
+      }
   return (
         <div className='my-3'>
          <div className="card shadow-sm bg-body rounded">
