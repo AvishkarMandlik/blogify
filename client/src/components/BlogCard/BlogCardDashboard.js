@@ -4,11 +4,11 @@ import Swal from 'sweetalert2';
 
 function BlogCardDashboard({title,imgUrl,description,category,author}) {
       async function dltblog(){
-            const resp = await axios.delete("/deleteBlog?title="+title);
+            const response = await axios.delete("/deleteBlog?title="+title);
 
             Swal.fire({
               title: "Are you sure?",
-              text: resp.data.message,
+              text: "You should delete this blog",
               icon: "warning",
               showCancelButton: true,
               confirmButtonColor: "#3085d6",
@@ -18,7 +18,7 @@ function BlogCardDashboard({title,imgUrl,description,category,author}) {
               if (resp.isConfirmed) {
                 Swal.fire({
                   title: "Deleted!",
-                  text: "Your file has been deleted.",
+                  text: response.data.message,
                   icon: "success"
                 });
                 window.location.reload();
