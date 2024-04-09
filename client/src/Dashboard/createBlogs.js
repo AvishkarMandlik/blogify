@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import Swal from 'sweetalert2';
 import { currentUser } from '../util/currentUser';
 import Navbar from '../components/Navbar/Navbar';
 const CreateBlogs = () => {
@@ -12,8 +13,6 @@ const CreateBlogs = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-
-
     const response = await axios.post('/createBlogs', {
       title,
       imgUrl,
@@ -22,6 +21,22 @@ const CreateBlogs = () => {
       content,
       author: currentUser.username,
     });
+    
+    if (response.data.success) {
+      Swal.fire({
+        icon: 'success',
+        title: 'Success',
+        text: 'Blog added successfully!',
+      }).then(() => {
+        window.location.reload();
+      });
+    } else {
+      Swal.fire({
+        icon: "error",
+        title: "Oops...",
+        text: response.data.message,
+      });
+    }
     console.log(response.data);
   };
 
