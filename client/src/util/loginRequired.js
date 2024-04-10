@@ -1,16 +1,18 @@
 import swal from "sweetalert2";
-
 import { currentUser } from "./currentUser";
 
-export async function loginRequired() {
+export const loginRequired = async () => {
   if (!currentUser) {
-    await swal.fire({
+    const { isConfirmed } = await swal.fire({
       title: "Login Required",
       text: "Please login to continue",
       icon: "warning",
       buttons: true,
       dangerMode: true,
     });
-    window.location.href = "/login";
+
+    if (isConfirmed) {
+      window.location.href = "/login";
+    }
   }
 }
