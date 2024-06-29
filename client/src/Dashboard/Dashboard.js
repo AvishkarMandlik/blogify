@@ -9,11 +9,15 @@ function Dashboard() {
   const [AllBlogs, setAllBlogsitems] = useState([]);
 
   useEffect(() => {
-    loginRequired();
+    if (!currentUser) {
+      loginRequired();
+      return;
+    }
     if (currentUser.role === 'admin') {
       console.log('fetched all');
       fetchAllItem();
-    } else {
+    } 
+    else {
       console.log('fetched user');
       fetchUserItems();
     }

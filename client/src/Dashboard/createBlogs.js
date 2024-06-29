@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import Swal from 'sweetalert2';
 import { currentUser } from '../util/currentUser';
+import { loginRequired } from "../util/loginRequired";
 import Navbar from '../components/Navbar/Navbar';
 const CreateBlogs = () => {
   const [title, setTitle] = useState('');
@@ -9,9 +10,13 @@ const CreateBlogs = () => {
   const [imgUrl, setImageUrl] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('general'); // Default category
-
+  if (!currentUser) {
+    loginRequired();
+    return;
+  } 
   const handleSubmit = async (e) => {
     e.preventDefault();
+ 
 
     const response = await axios.post('/createBlogs', {
       title,
