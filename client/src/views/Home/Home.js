@@ -5,6 +5,7 @@ import Navbar from "./../../components/Navbar/Navbar";
 import { currentUser } from "../../util/currentUser";
 import { loginRequired } from "../../util/loginRequired";
 import BlogCardHome from "../../components/BlogCard/BlogCardHome";
+import "./Home.css"
 
 function Home() {
   const [searchText, setSearchText] = useState("");
@@ -39,10 +40,9 @@ function Home() {
       <Navbar user={currentUser?.username} />
       <div className="container">
       <div class="dark fire">
-        <h1 class="Blazing" contenteditable="true">BLAZING</h1>
-  </div>
+        <h1 class="Blazing" contenteditable="true">Blogify</h1>
+      </div>
         <div className="row justify-content-center">
-       
           <div className="p-3 ">
             <input
               type="text"
