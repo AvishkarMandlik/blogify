@@ -38,7 +38,11 @@ function Home() {
     <div>
       <Navbar user={currentUser?.username} />
       <div className="container">
+      <div class="dark fire">
+        <h1 class="Blazing" contenteditable="true">BLAZING</h1>
+  </div>
         <div className="row justify-content-center">
+       
           <div className="p-3 ">
             <input
               type="text"
