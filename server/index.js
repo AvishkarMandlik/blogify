@@ -177,6 +177,30 @@ app.delete('/deleteBlog', async (req, res) => {
   }
 });
 
+app.put('/updateBlog', async (req, res) => {
+  const blogsCollection = mongoConnection.getCollection('blogs');
+
+  const title = req.query.title;
+  const imgUrl = req.query.imgUrl;
+  const description = req.query.description;
+  const category = req.query.category;
+  const content = req.query.content;
+
+  const foundBlog = await blogsCollection.updateOne({ title: title }, { $set: { imgUrl: imgUrl, description: description, category: category, content: content } });
+
+  if (foundBlog) {
+    res.json({
+      success: true,
+      message: 'Blog updated successfully'
+    });
+  } else {
+    res.json({
+      success: false,
+      message: 'No blog found for this user'
+    });
+  }
+});
+
 app.use(express.static(path.join(__dirname, '..', 'client', 'build')));
 
 app.get('*', (req, res) => {
