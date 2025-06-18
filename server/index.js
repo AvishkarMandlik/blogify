@@ -151,6 +151,22 @@ app.post("/likeBlog", async (req, res) => {
   res.json({ success: true, message: "Blog liked successfully" });
 });
 
+app.post("/unlikeBlog", async (req, res) => {
+  const { blogId, userId } = req.body;
+  const blogsCollection = mongoConnection.getCollection('blogs');
+
+  const blog = await blogsCollection.findOne({ _id: new ObjectId(blogId) });
+  if (!blog) {
+    return res.json({ success: false, message: "Blog not found" });
+  }
+
+  await blogsCollection.updateOne(
+    { _id: new ObjectId(blogId) },
+    { $pull: { likes: userId } } 
+  );
+
+  res.json({ success: true, message: "Blog unliked successfully" });
+});
 
 
 app.post("/saveBlog", async (req, res) => {
@@ -172,6 +188,21 @@ app.post("/saveBlog", async (req, res) => {
 });
 
 
+app.post("/unsaveBlog", async (req, res) => {
+ const { blogId, userId } = req.body;
+const usersCollection = mongoConnection.getCollection('users');
+
+if (!ObjectId.isValid(blogId) || !ObjectId.isValid(userId)) {
+  return res.status(400).json({ success: false, message: "Invalid blogId or userId" });
+}
+
+await usersCollection.updateOne(
+  { _id: new ObjectId(userId) },
+  { $pull: { savedBlogs: new ObjectId(blogId) } }
+);
+
+res.json({ success: true, message: "Blog unsaved successfully" });
+});
 
 
 
