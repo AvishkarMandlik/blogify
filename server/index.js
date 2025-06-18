@@ -1,11 +1,13 @@
 const express = require('express');
 const mongoConnection = require('./mongoConn');
+const cors = require("cors");
 const bcrypt = require('bcryptjs');
 const app = express();
 const PORT = 5000;
 const path = require('path');
+const { ObjectId } = require('mongodb');
 app.use(express.json());
-
+app.use(cors());
 app.post('/signup', async (req, res) => {
   const { username,email, password,role } = req.body;
   const usersCollection = mongoConnection.getCollection('users');
@@ -98,16 +100,79 @@ app.post('/signup', async (req, res) => {
     res.json(Blog)
   })
   
-  app.get("/allBlogs", async(req, res)=>{
-    const blogsCollection = mongoConnection.getCollection('blogs');
-    const allBlogs = await blogsCollection.find({}).toArray();
 
-    res.json({
-        success: true,
-        message: "All Blogs fetched successfully",
-        data: allBlogs
-    })
-})
+app.get("/allBlogs", async (req, res) => {
+  const userId = req.query.userId;
+  if (!userId) {
+    return res.json({ success: false, message: "Missing userId in query" });
+  }
+
+  const blogsCollection = mongoConnection.getCollection('blogs');
+  const usersCollection = mongoConnection.getCollection('users');
+
+  const allBlogs = await blogsCollection.find({}).toArray();
+  const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
+
+  const savedBlogIds = user?.savedBlogs?.map(id => id.toString()) || [];
+
+  const enrichedBlogs = allBlogs.map(blog => {
+    return {
+      ...blog,
+      isLiked: blog.likes?.includes(userId) || false,
+      isSaved: savedBlogIds.includes(blog._id.toString())
+    };
+  });
+
+  res.json({
+    success: true,
+    message: "All Blogs fetched successfully",
+    data: enrichedBlogs
+  });
+});
+
+app.post("/likeBlog", async (req, res) => {
+  const { blogId, userId } = req.body;
+  const blogsCollection = mongoConnection.getCollection('blogs');
+
+  const blog = await blogsCollection.findOne({ _id: new ObjectId(blogId) });
+  if (!blog) {
+    return res.json({ success: false, message: "Blog not found" });
+  }
+
+  if (blog.likes && blog.likes.includes(userId)) {
+    return res.json({ message: "You already liked this blog" });
+  }
+
+  const updatedBlog = await blogsCollection.updateOne(
+    { _id: new ObjectId(blogId) },
+    { $addToSet: { likes: userId } } 
+  );
+
+  res.json({ success: true, message: "Blog liked successfully" });
+});
+
+
+
+app.post("/saveBlog", async (req, res) => {
+  const { blogId, userId } = req.body;
+  const usersCollection = mongoConnection.getCollection('users');
+
+  const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
+  if (!user) {
+    return res.json({ success: false, message: "User not found" });
+  }
+
+  
+  await usersCollection.updateOne(
+    { _id: new ObjectId(userId) },
+    { $addToSet: { savedBlogs: new ObjectId(blogId) } }
+  );
+
+  res.json({ success: true, message: "Blog saved successfully" });
+});
+
+
+
 
 
 app.get('/Blogsbytitle', async (req, res) => {
