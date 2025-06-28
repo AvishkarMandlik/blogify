@@ -168,42 +168,81 @@ app.post("/unlikeBlog", async (req, res) => {
   res.json({ success: true, message: "Blog unliked successfully" });
 });
 
+app.get("/likeCount", async (req, res)=>{
+   const { blogId } = req.query;
+    const blogsCollection = mongoConnection.getCollection('blogs');
+    const blog = await blogsCollection.findOne({ _id: new ObjectId(blogId) });
+  const likeCount = blog.likes?.length || 0;
+    res.json({
+      success: true,
+      message: "Like count fetched successfully",
+      data: likeCount
+    });
+})
+
+
 
 app.post("/saveBlog", async (req, res) => {
   const { blogId, userId } = req.body;
   const usersCollection = mongoConnection.getCollection('users');
+  const blogsCollection = mongoConnection.getCollection('blogs');
+
+  if (!ObjectId.isValid(blogId) || !ObjectId.isValid(userId)) {
+    return res.status(400).json({ success: false, message: "Invalid IDs" });
+  }
 
   const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
   if (!user) {
-    return res.json({ success: false, message: "User not found" });
+    return res.status(404).json({ success: false, message: "User not found" });
   }
 
-  
+  // Save blog in user's savedBlogs array
   await usersCollection.updateOne(
     { _id: new ObjectId(userId) },
     { $addToSet: { savedBlogs: new ObjectId(blogId) } }
   );
 
-  res.json({ success: true, message: "Blog saved successfully" });
-});
+  // Find all users who saved this blog
+  const savedUsers = await usersCollection
+    .find({ savedBlogs: new ObjectId(blogId) })
+    .project({ _id: 1, username: 1 })
+    .toArray();
 
+  res.json({
+    success: true,
+    message: "Blog saved successfully",
+    saveCount: savedUsers.length,
+    savedBy: savedUsers  // [{ _id, username }]
+  });
+});
 
 app.post("/unsaveBlog", async (req, res) => {
- const { blogId, userId } = req.body;
-const usersCollection = mongoConnection.getCollection('users');
+  const { blogId, userId } = req.body;
+  const usersCollection = mongoConnection.getCollection('users');
 
-if (!ObjectId.isValid(blogId) || !ObjectId.isValid(userId)) {
-  return res.status(400).json({ success: false, message: "Invalid blogId or userId" });
-}
+  if (!ObjectId.isValid(blogId) || !ObjectId.isValid(userId)) {
+    return res.status(400).json({ success: false, message: "Invalid blogId or userId" });
+  }
 
-await usersCollection.updateOne(
-  { _id: new ObjectId(userId) },
-  { $pull: { savedBlogs: new ObjectId(blogId) } }
-);
+  // Remove blog from savedBlogs array
+  await usersCollection.updateOne(
+    { _id: new ObjectId(userId) },
+    { $pull: { savedBlogs: new ObjectId(blogId) } }
+  );
 
-res.json({ success: true, message: "Blog unsaved successfully" });
+  // Recount how many users have saved it
+  const savedUsers = await usersCollection
+    .find({ savedBlogs: new ObjectId(blogId) })
+    .project({ _id: 1, username: 1 })
+    .toArray();
+
+  res.json({
+    success: true,
+    message: "Blog unsaved successfully",
+    saveCount: savedUsers.length,
+    savedBy: savedUsers
+  });
 });
-
 
 
 app.get('/Blogsbytitle', async (req, res) => {
