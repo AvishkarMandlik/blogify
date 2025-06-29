@@ -8,6 +8,7 @@ const path = require('path');
 const { ObjectId } = require('mongodb');
 app.use(express.json());
 app.use(cors());
+
 app.post('/signup', async (req, res) => {
   const { username,email, password,role } = req.body;
   const usersCollection = mongoConnection.getCollection('users');
@@ -76,7 +77,84 @@ app.post('/signup', async (req, res) => {
   });
 
   
-  app.post("/createBlogs", async(req,res)=>{
+app.get('/userProfile', async (req, res) => {
+  const { userId } = req.query;
+  
+  if (!userId) {
+    return res.status(400).json({ success: false, message: "User ID is required" });
+  }
+
+  try {
+    const usersCollection = mongoConnection.getCollection('users');
+    const blogsCollection = mongoConnection.getCollection('blogs');
+
+    const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    // Get user's blogs count
+    const blogsCount = await blogsCollection.countDocuments({ author: user.username });
+
+    // Get user's saved blogs count
+    const savedBlogsCount = user.savedBlogs?.length || 0;
+
+    const userData = {
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      joinDate: user._id.getTimestamp(),
+      blogsCount,
+      savedBlogsCount
+    };
+
+    res.json({ success: true, data: userData });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+
+app.get('/myBlogs', async (req, res) => {
+    const { userId } = req.query;
+
+    if (!userId) {
+        return res.status(400).json({ success: false, message: "User ID is required." });
+    }
+
+    try {
+        const blogsCollection = mongoConnection.getCollection('blogs');
+        const usersCollection = mongoConnection.getCollection('users');
+
+        const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found." });
+        }
+
+        const userBlogs = await blogsCollection.find({ author: user.username }).toArray(); // Assuming 'author' stores username
+
+        // Enrich with like/save status for the current user
+        const savedBlogIds = user?.savedBlogs?.map(id => id.toString()) || [];
+        const enrichedUserBlogs = userBlogs.map(blog => ({
+            ...blog,
+            isLiked: blog.likes?.includes(userId) || false,
+            isSaved: savedBlogIds.includes(blog._id.toString())
+        }));
+
+        res.json({
+            success: true,
+            message: "User's blogs fetched successfully",
+            data: enrichedUserBlogs
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: "Server error." });
+    }
+});
+
+
+ app.post("/createBlogs", async(req,res)=>{
     const {title, imgUrl, description, category, content, author} = req.body;
     const blogsCollection = mongoConnection.getCollection('blogs');
     const existingBlog = await blogsCollection.findOne({title});
@@ -84,14 +162,13 @@ app.post('/signup', async (req, res) => {
       return res.json({ message: 'Blog already exists' });
   
     }
-    const savedBlog = await blogsCollection.insertOne({title, imgUrl, description, category, author, content });
+    const savedBlog = await blogsCollection.insertOne({title, imgUrl, description, category, author, content,createdAt: new Date()  });
 
     res.json({
       success: true,
       message: "BLOG added successfully"
     });
   })
-
 
   app.post("/BlogContent", async(req,res)=>{
     const {title} = req.body;
@@ -103,8 +180,14 @@ app.post('/signup', async (req, res) => {
 
 app.get("/allBlogs", async (req, res) => {
   const userId = req.query.userId;
+
   if (!userId) {
     return res.json({ success: false, message: "Missing userId in query" });
+  }
+
+  // 💥 Validate userId
+  if (!ObjectId.isValid(userId)) {
+    return res.status(400).json({ success: false, message: "Invalid userId format" });
   }
 
   const blogsCollection = mongoConnection.getCollection('blogs');
@@ -182,67 +265,10 @@ app.get("/likeCount", async (req, res)=>{
 
 
 
-app.post("/saveBlog", async (req, res) => {
-  const { blogId, userId } = req.body;
-  const usersCollection = mongoConnection.getCollection('users');
-  const blogsCollection = mongoConnection.getCollection('blogs');
 
-  if (!ObjectId.isValid(blogId) || !ObjectId.isValid(userId)) {
-    return res.status(400).json({ success: false, message: "Invalid IDs" });
-  }
 
-  const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
-  if (!user) {
-    return res.status(404).json({ success: false, message: "User not found" });
-  }
 
-  // Save blog in user's savedBlogs array
-  await usersCollection.updateOne(
-    { _id: new ObjectId(userId) },
-    { $addToSet: { savedBlogs: new ObjectId(blogId) } }
-  );
 
-  // Find all users who saved this blog
-  const savedUsers = await usersCollection
-    .find({ savedBlogs: new ObjectId(blogId) })
-    .project({ _id: 1, username: 1 })
-    .toArray();
-
-  res.json({
-    success: true,
-    message: "Blog saved successfully",
-    saveCount: savedUsers.length,
-    savedBy: savedUsers  // [{ _id, username }]
-  });
-});
-
-app.post("/unsaveBlog", async (req, res) => {
-  const { blogId, userId } = req.body;
-  const usersCollection = mongoConnection.getCollection('users');
-
-  if (!ObjectId.isValid(blogId) || !ObjectId.isValid(userId)) {
-    return res.status(400).json({ success: false, message: "Invalid blogId or userId" });
-  }
-
-  // Remove blog from savedBlogs array
-  await usersCollection.updateOne(
-    { _id: new ObjectId(userId) },
-    { $pull: { savedBlogs: new ObjectId(blogId) } }
-  );
-
-  // Recount how many users have saved it
-  const savedUsers = await usersCollection
-    .find({ savedBlogs: new ObjectId(blogId) })
-    .project({ _id: 1, username: 1 })
-    .toArray();
-
-  res.json({
-    success: true,
-    message: "Blog unsaved successfully",
-    saveCount: savedUsers.length,
-    savedBy: savedUsers
-  });
-});
 
 
 app.get('/Blogsbytitle', async (req, res) => {
@@ -290,6 +316,8 @@ app.get('/BlogsbyUsername', async (req, res) => {
     });
   }
 });
+
+
 
 
 app.delete('/deleteBlog', async (req, res) => {
