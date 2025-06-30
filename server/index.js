@@ -264,7 +264,97 @@ app.get("/likeCount", async (req, res)=>{
 })
 
 
+app.post('/addComment', async (req, res) => {
+  const { blogId, userId, comment } = req.body;
 
+  if (!blogId || !userId || !comment) {
+    return res.status(400).json({ success: false, message: "Missing data" });
+  }
+
+  const blogsCollection = mongoConnection.getCollection('blogs');
+  const usersCollection = mongoConnection.getCollection('users');
+
+  const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
+  if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+  const newComment = {
+    commentId: new ObjectId(),
+    userId,
+    username: user.username,
+    comment,
+    createdAt: new Date()
+  };
+
+  await blogsCollection.updateOne(
+    { _id: new ObjectId(blogId) },
+    { $push: { comments: newComment } }
+  );
+
+  res.json({ success: true, message: "Comment added successfully", comment: newComment });
+});
+
+app.delete('/deleteComment', async (req, res) => {
+  const { blogId, commentId, userId } = req.query;
+
+  if (!blogId || !commentId || !userId) {
+    return res.status(400).json({ success: false, message: "Missing data" });
+  }
+
+  const blogsCollection = mongoConnection.getCollection('blogs');
+  const usersCollection = mongoConnection.getCollection('users');
+
+  const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
+  if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+  const blog = await blogsCollection.findOne({ _id: new ObjectId(blogId) });
+  if (!blog) return res.status(404).json({ success: false, message: "Blog not found" });
+
+  const comment = blog.comments?.find(c => c.commentId.toString() === commentId);
+
+  if (!comment) {
+    return res.status(404).json({ success: false, message: "Comment not found" });
+  }
+
+  // Allow only author or admin
+  if (comment.userId !== userId && user.role !== 'admin') {
+    return res.status(403).json({ success: false, message: "Unauthorized" });
+  }
+
+  await blogsCollection.updateOne(
+    { _id: new ObjectId(blogId) },
+    { $pull: { comments: { commentId: new ObjectId(commentId) } } }
+  );
+
+  res.json({ success: true, message: "Comment deleted successfully" });
+});
+
+app.get('/comments', async (req, res) => {
+  const { blogId } = req.query;
+
+  if (!blogId) {
+    return res.status(400).json({ success: false, message: "Missing blogId" });
+  }
+
+  const blogsCollection = mongoConnection.getCollection('blogs');
+  const blog = await blogsCollection.findOne({ _id: new ObjectId(blogId) });
+
+  if (!blog) return res.status(404).json({ success: false, message: "Blog not found" });
+
+  res.json({ success: true, comments: blog.comments || [] });
+});
+
+app.get('/commentCount', async (req, res) => {
+  const { blogId } = req.query;
+
+  if (!blogId) return res.status(400).json({ success: false, message: "Missing blogId" });
+
+  const blogsCollection = mongoConnection.getCollection('blogs');
+  const blog = await blogsCollection.findOne({ _id: new ObjectId(blogId) });
+
+  const count = blog?.comments?.length || 0;
+
+  res.json({ success: true, count });
+});
 
 
 
