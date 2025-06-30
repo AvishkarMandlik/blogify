@@ -358,6 +358,95 @@ app.get('/commentCount', async (req, res) => {
 
 
 
+app.post("/saveBlog", async (req, res) => {
+  const { blogId, userId } = req.body;
+  const usersCollection = mongoConnection.getCollection('users');
+  const blogsCollection = mongoConnection.getCollection('blogs');
+
+  if (!ObjectId.isValid(blogId) || !ObjectId.isValid(userId)) {
+    return res.status(400).json({ success: false, message: "Invalid IDs" });
+  }
+
+  const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
+  if (!user) {
+    return res.status(404).json({ success: false, message: "User not found" });
+  }
+
+  // Save blog in user's savedBlogs array
+  await usersCollection.updateOne(
+    { _id: new ObjectId(userId) },
+    { $addToSet: { savedBlogs: new ObjectId(blogId) } }
+  );
+
+  // Find all users who saved this blog
+  const savedUsers = await usersCollection
+    .find({ savedBlogs: new ObjectId(blogId) })
+    .project({ _id: 1, username: 1 })
+    .toArray();
+
+  res.json({
+    success: true,
+    message: "Blog saved successfully",
+    saveCount: savedUsers.length,
+    savedBy: savedUsers  // [{ _id, username }]
+  });
+});
+
+app.post("/unsaveBlog", async (req, res) => {
+  const { blogId, userId } = req.body;
+  const usersCollection = mongoConnection.getCollection('users');
+
+  if (!ObjectId.isValid(blogId) || !ObjectId.isValid(userId)) {
+    return res.status(400).json({ success: false, message: "Invalid blogId or userId" });
+  }
+
+  // Remove blog from savedBlogs array
+  await usersCollection.updateOne(
+    { _id: new ObjectId(userId) },
+    { $pull: { savedBlogs: new ObjectId(blogId) } }
+  );
+
+  // Recount how many users have saved it
+  const savedUsers = await usersCollection
+    .find({ savedBlogs: new ObjectId(blogId) })
+    .project({ _id: 1, username: 1 })
+    .toArray();
+
+  res.json({
+    success: true,
+    message: "Blog unsaved successfully",
+    saveCount: savedUsers.length,
+    savedBy: savedUsers
+  });
+});
+
+app.get('/savedBlogs', async (req, res) => {
+  const { userId } = req.query;
+
+  if (!userId) {
+    return res.status(400).json({ success: false, message: "User ID is required" });
+  }
+
+  try {
+    const usersCollection = mongoConnection.getCollection('users');
+    const blogsCollection = mongoConnection.getCollection('blogs');
+
+    const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const savedBlogIds = user.savedBlogs || [];
+    const savedBlogs = await blogsCollection.find({
+      _id: { $in: savedBlogIds }
+    }).toArray();
+
+    res.json({ success: true, data: savedBlogs });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
 
 
 
