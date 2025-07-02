@@ -29,7 +29,7 @@ app.post('/signup', async (req, res) => {
 }
   const hashedPassword = await bcrypt.hash(password, 10);
   await usersCollection.insertOne({ username,email, role, password: hashedPassword });
-  const savedUser =  { username,email, role, password: hashedPassword }
+  const savedUser =  { username,email, role, password: hashedPassword ,joinedAt: new Date()}
     res.json({
       success: true,
       message: "User created successfully",
@@ -115,6 +115,24 @@ app.get('/userProfile', async (req, res) => {
   }
 });
 
+app.delete('/deleteAccount', async (req, res) => {
+    const {  email, password } = req.body;
+    if (!email || !password) {
+        return res.status(400).json({ success: false, message: "Email and password are required" });
+    }
+    const usersCollection = mongoConnection.getCollection('users');
+    const user = await usersCollection.findOne({ email, password: { $exists: true } });
+    if (!user) {
+        return res.status(404).json({ success: false, message: "User not found" });
+    }
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+        return res.status(401).json({ success: false, message: "Incorrect password" });
+    }
+    await usersCollection.deleteOne({ email });
+    res.json({ success: true, message: "Account deleted successfully" });
+});
+
 
 app.get('/myBlogs', async (req, res) => {
     const { userId } = req.query;
@@ -177,6 +195,7 @@ app.get('/myBlogs', async (req, res) => {
     res.json(Blog)
   })
   
+
 
 app.get("/allBlogs", async (req, res) => {
   const userId = req.query.userId;
@@ -497,6 +516,72 @@ app.get('/BlogsbyUsername', async (req, res) => {
 });
 
 
+/* ===============  ADMIN ROUTES  =============== */
+
+app.get("/admin/users", async (_, res) => {
+  const users = await mongoConnection
+      .getCollection("users")
+      .find({}, { projection: { password: 0 } })
+      .toArray();
+  res.json({ success: true, data: users, message: "Users fetched successfully" });
+});
+
+app.put("/admin/updateRole", async (req, res) => {
+  const { targetId, newRole, adminId } = req.body; // adminId for auditing
+  const users = mongoConnection.getCollection("users");
+
+  await users.updateOne(
+    { _id: new ObjectId(targetId) },
+    { $set: { role: newRole } }
+  );
+  res.json({ success: true, message: "Role updated" });
+});
+
+app.delete("/admin/deleteUser", async (req, res) => {
+  const { email, password } = req.body;
+  const users = mongoConnection.getCollection("users");
+
+  const user = await users.findOne({ email });
+
+  if (!user ) return res.status(404).json({ success: false, message: "User not found" });
+  
+  await users.deleteOne({ _id: user._id });
+  await mongoConnection.getCollection("blogs").deleteMany({ author: user.username });
+
+  res.json({ success: true, message: "User & blogs removed" });
+});
+
+app.get("/likedBlogs", async (req, res) => {
+  const { userId } = req.query;
+  if (!userId) return res.status(400).json({ success: false, message: "userId missing" });
+
+  const blogs = await mongoConnection.getCollection("blogs")
+    .find({ likes: userId }).toArray();
+  res.json({ success: true, data: blogs });
+});
+
+// Get dashboard stats for admin
+app.get("/dashboardStats", async (req, res) => {
+  const userId = req.query.userId;
+  if (!userId) return res.status(400).json({ success: false, message: "Missing userId" });
+
+  const blogsCollection = mongoConnection.getCollection("blogs");
+  const usersCollection = mongoConnection.getCollection("users");
+
+  const totalUsers = await usersCollection.countDocuments();
+  const totalBlogs = await blogsCollection.countDocuments();
+
+  const mostLikedBlogs = await blogsCollection
+    .find({ likes: { $exists: true, $ne: [] } })
+    .sort({ "likes.length": -1 })
+    .limit(1)
+    .toArray();
+
+  res.json({
+    success: true,
+    data: { totalUsers, totalBlogs, mostLikedBlogs },
+  });
+});
 
 
 app.delete('/deleteBlog', async (req, res) => {
