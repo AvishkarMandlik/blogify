@@ -205,6 +205,7 @@ app.post("/BlogContent", async (req, res) => {
   }
 });
 
+  
 
 
 
@@ -496,31 +497,6 @@ app.get('/savedBlogs', async (req, res) => {
 });
 
 
-
-// app.get('/Blogsbytitle', async (req, res) => {
-//   const blogsCollection = mongoConnection.getCollection('blogs');
-//   const title = req.query.title;
-
-//   const titleRegex = new RegExp(title, 'i');
-
-//   const foundBlog = await blogsCollection.find({ title: titleRegex }).toArray();
-
-//   if (foundBlog) {
-//     res.json({
-//       success: true,
-//       message: 'Blog fetched successfully',
-//       data: foundBlog,
-//     });
-//   } else {
-//     res.json({
-//       success: false,
-//       message: 'No blog found for this title',
-//       data: null,
-//     });
-//   }
-// });
-
-
 app.get('/BlogsbyUsername', async (req, res) => {
   const blogsCollection = mongoConnection.getCollection('blogs');
   const Username = req.query.username;
@@ -554,30 +530,53 @@ app.get("/admin/users", async (_, res) => {
   res.json({ success: true, data: users, message: "Users fetched successfully" });
 });
 
+
+app.delete("/admin/deleteUser", async (req, res) => {
+  const { adminEmail, password, targetEmail } = req.body;
+
+  const users  = mongoConnection.getCollection("users");
+  const blogs  = mongoConnection.getCollection("blogs");
+
+  const admin  = await users.findOne({ email: adminEmail });
+  if (!admin || admin.role !== "admin")
+    return res.status(403).json({ success:false, message:"Admin only." });
+
+  const ok = await bcrypt.compare(password, admin.password);   // <‑‑ hashed pwd
+  if (!ok)
+    return res.status(401).json({ success:false, message:"Wrong password." });
+
+  const target = await users.findOne({ email: targetEmail });
+  if (!target)
+    return res.status(404).json({ success:false, message:"User not found." });
+
+  await users.deleteOne({ _id: target._id });
+  await blogs.deleteMany({ author: target.username });
+
+  res.json({ success:true, message:"User & blogs deleted." });
+});
+
+
 app.put("/admin/updateRole", async (req, res) => {
-  const { targetId, newRole, adminId } = req.body; // adminId for auditing
+  const { adminEmail, password, targetId, newRole } = req.body;
+
   const users = mongoConnection.getCollection("users");
+
+  const admin = await users.findOne({ email: adminEmail });
+  if (!admin || admin.role !== "admin")
+    return res.status(403).json({ success:false, message:"Admin only." });
+
+  const ok = await bcrypt.compare(password, admin.password);
+  if (!ok)
+    return res.status(401).json({ success:false, message:"Wrong password." });
 
   await users.updateOne(
     { _id: new ObjectId(targetId) },
     { $set: { role: newRole } }
   );
-  res.json({ success: true, message: "Role updated" });
+
+  res.json({ success:true, message:"Role updated." });
 });
 
-app.delete("/admin/deleteUser", async (req, res) => {
-  const { email, password } = req.body;
-  const users = mongoConnection.getCollection("users");
-
-  const user = await users.findOne({ email });
-
-  if (!user ) return res.status(404).json({ success: false, message: "User not found" });
-  
-  await users.deleteOne({ _id: user._id });
-  await mongoConnection.getCollection("blogs").deleteMany({ author: user.username });
-
-  res.json({ success: true, message: "User & blogs removed" });
-});
 
 app.get("/likedBlogs", async (req, res) => {
   const { userId } = req.query;
