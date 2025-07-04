@@ -187,14 +187,26 @@ app.get('/myBlogs', async (req, res) => {
       message: "BLOG added successfully"
     });
   })
-
-  app.post("/BlogContent", async(req,res)=>{
-    const {title} = req.body;
-    const blogsCollection = mongoConnection.getCollection('blogs');
-    const Blog = await blogsCollection.findOne({title});
-    res.json(Blog)
-  })
   
+app.post("/BlogContent", async (req, res) => {
+  const { blogId } = req.body;
+  const blogsCollection = mongoConnection.getCollection("blogs");
+
+  try {
+    const blog = await blogsCollection.findOne({ _id: new ObjectId(blogId) });
+    if (!blog) {
+      return res.status(404).json({ success: false, message: "Blog not found" });
+    }
+
+    res.json(blog); 
+  } catch (err) {
+    console.error("Error fetching blog:", err);
+    res.status(500).json({ success: false, message: "Internal Server Error" });
+  }
+});
+
+
+
 
 
 app.get("/allBlogs", async (req, res) => {
@@ -310,6 +322,22 @@ app.post('/addComment', async (req, res) => {
   );
 
   res.json({ success: true, message: "Comment added successfully", comment: newComment });
+});
+
+app.put("/editComment", async (req, res) => {
+  const { commentId, newComment, userId } = req.body;
+  const blogsCollection = mongoConnection.getCollection("blogs");
+
+  const result = await blogsCollection.updateOne(
+    { "comments.commentId": new ObjectId(commentId), "comments.userId": userId },
+    { $set: { "comments.$.comment": newComment } }
+  );
+
+  if (result.modifiedCount) {
+    res.json({ success: true, message: "Comment updated" });
+  } else {
+    res.status(403).json({ success: false, message: "Edit not permitted" });
+  }
 });
 
 app.delete('/deleteComment', async (req, res) => {
@@ -469,28 +497,28 @@ app.get('/savedBlogs', async (req, res) => {
 
 
 
-app.get('/Blogsbytitle', async (req, res) => {
-  const blogsCollection = mongoConnection.getCollection('blogs');
-  const title = req.query.title;
+// app.get('/Blogsbytitle', async (req, res) => {
+//   const blogsCollection = mongoConnection.getCollection('blogs');
+//   const title = req.query.title;
 
-  const titleRegex = new RegExp(title, 'i');
+//   const titleRegex = new RegExp(title, 'i');
 
-  const foundBlog = await blogsCollection.find({ title: titleRegex }).toArray();
+//   const foundBlog = await blogsCollection.find({ title: titleRegex }).toArray();
 
-  if (foundBlog) {
-    res.json({
-      success: true,
-      message: 'Blog fetched successfully',
-      data: foundBlog,
-    });
-  } else {
-    res.json({
-      success: false,
-      message: 'No blog found for this title',
-      data: null,
-    });
-  }
-});
+//   if (foundBlog) {
+//     res.json({
+//       success: true,
+//       message: 'Blog fetched successfully',
+//       data: foundBlog,
+//     });
+//   } else {
+//     res.json({
+//       success: false,
+//       message: 'No blog found for this title',
+//       data: null,
+//     });
+//   }
+// });
 
 
 app.get('/BlogsbyUsername', async (req, res) => {
