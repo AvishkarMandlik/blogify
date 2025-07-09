@@ -1,39 +1,47 @@
 const express = require('express');
 const mongoConnection = require('./mongoConn');
 const cors = require("cors");
+const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const axios = require('axios');
 const app = express();
 const PORT = 5000;
 const path = require('path');
+
 const { ObjectId } = require('mongodb');
+const protect = require('./middleware/protect');
 app.use(express.json());
 app.use(cors());
 
-app.post('/signup', async (req, res) => {
+app.post('/signup',  async (req, res) => {
   const { username,email, password,role } = req.body;
   const usersCollection = mongoConnection.getCollection('users');
 
-  const existingUsername = await usersCollection.findOne({ email});
-  if (existingUsername) {
-    return res.json({
-      success: false,
-      message: "Email already exists"
-  })
-  }
-  const existingEmail = await usersCollection.findOne({ username});
+   const existingEmail = await usersCollection.findOne({ email });
   if (existingEmail) {
     return res.json({
       success: false,
+      message: "Email already exists"
+    });
+  }
+
+  const existingUsername = await usersCollection.findOne({ username });
+  if (existingUsername) {
+    return res.json({
+      success: false,
       message: "Username already exists"
-  })
-}
+    });
+  }
+
   const hashedPassword = await bcrypt.hash(password, 10);
-  await usersCollection.insertOne({ username,email, role, password: hashedPassword });
   const savedUser =  { username,email, role, password: hashedPassword ,joinedAt: new Date()}
+  const token = jwt.sign(savedUser, process.env.JWT_SECRET);
+  await usersCollection.insertOne({...savedUser});
+
     res.json({
       success: true,
       message: "User created successfully",
-      data: savedUser
+      data: token
   })});
 
 
@@ -63,27 +71,22 @@ app.post('/signup', async (req, res) => {
         message: "Incorrect password",
       });
     }
+    const token = jwt.sign({ id: user._id, role: user.role, username: user.username, email: user.email },
+       process.env.JWT_SECRET,
+        { expiresIn: '1d' });
   
     res.json({
       success: true,
       message: "Logged in successfully",
       data: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        role: user.role,
+        token,
       },
     });
   });
 
   
-app.get('/userProfile', async (req, res) => {
-  const { userId } = req.query;
-  
-  if (!userId) {
-    return res.status(400).json({ success: false, message: "User ID is required" });
-  }
-
+app.get('/userProfile', protect, async (req, res) => {
+  const userId = req.user.id; // decoded from token
   try {
     const usersCollection = mongoConnection.getCollection('users');
     const blogsCollection = mongoConnection.getCollection('blogs');
@@ -92,28 +95,28 @@ app.get('/userProfile', async (req, res) => {
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
-
-    // Get user's blogs count
+ 
     const blogsCount = await blogsCollection.countDocuments({ author: user.username });
-
-    // Get user's saved blogs count
     const savedBlogsCount = user.savedBlogs?.length || 0;
 
-    const userData = {
-      username: user.username,
-      email: user.email,
-      role: user.role,
-      joinDate: user._id.getTimestamp(),
-      blogsCount,
-      savedBlogsCount
-    };
-
-    res.json({ success: true, data: userData });
+    res.json({
+      success: true,
+      data: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        joinDate: user._id.getTimestamp(),
+        blogsCount,
+        savedBlogsCount
+      }
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
+
 
 app.delete('/deleteAccount', async (req, res) => {
     const {  email, password } = req.body;
@@ -205,8 +208,108 @@ app.post("/BlogContent", async (req, res) => {
   }
 });
 
-  
+app.post("/summarizeBlog", async (req, res) => {
+  const { content = "" } = req.body;
+  if (!content.trim()) {
+    return res
+      .status(400)
+      .json({ success: false, message: "No content sent." });
+  }
 
+  try {
+    const geminiURL =
+      "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent";
+
+    const aiRes = await axios.post(
+      `${geminiURL}?key=${process.env.GEMINI_API_KEY}`,
+      {
+        contents: [
+          {
+            parts: [
+              {
+                text: `
+                      Summarize the following blog in **simple, everyday English**.
+                      • Use 6‑10 concise sentences.
+                      • Keep important facts, skip fluff.
+                      • Do NOT add anything that is not in the text.
+
+                      BLOG START
+                      ${content}
+                      BLOG END`,
+              },
+            ],
+          },
+        ],
+      },
+      { headers: { "Content-Type": "application/json" } }
+    );
+
+    const summary =
+      aiRes.data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ||
+      "Summary unavailable.";
+
+    res.json({ success: true, summary });
+  } catch (err) {
+    const status = err.response?.status || 500;
+    const message =
+    err.response?.data?.error?.message ||
+    err.message ||
+    "Gemini API failed to summarize content.";
+    console.error("Gemini summarization error:", err.message);
+    res.status(500).json({
+      success: false,
+      message: message
+    });
+  }
+});
+  
+app.post('/categories', async (req, res) => {
+  const { name } = req.body;
+
+  if (!name) {
+    return res.status(400).json({ success: false, message: "Category name is required" });
+  }
+
+  try {
+    const categoriesCollection = mongoConnection.getCollection('categories');
+
+    const existing = await categoriesCollection.findOne({ name });
+    if (existing) {
+      return res.json({
+        success: true,
+        message: "Category already exists"
+      });
+    }
+
+    await categoriesCollection.insertOne({ name });
+
+    res.json({
+      success: true,
+      message: "Category added successfully"
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Failed to add category" });
+  }
+});
+
+app.get('/categories', async (req, res) => {
+  try {
+    const categoriesCollection = mongoConnection.getCollection('categories');
+    const allCategories = await categoriesCollection.find({}).toArray();
+
+    const names = allCategories.map(c => c.name);
+
+    res.json({
+      success: true,
+      message: "Categories fetched successfully",
+      data: names
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Failed to fetch categories" });
+  }
+});
 
 
 
