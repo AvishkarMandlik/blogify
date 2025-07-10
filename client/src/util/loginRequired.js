@@ -1,8 +1,9 @@
 import swal from "sweetalert2";
-import { currentUser } from "./currentUser";
+import { getUserProfile } from "./getUserProfile";
 
 export const loginRequired = async () => {
-  if (!currentUser) {
+  const user  = await getUserProfile();
+  if (!user ) {
     const { isConfirmed } = await swal.fire({
       title: "Login Required",
       text: "Please login to continue",
@@ -14,5 +15,7 @@ export const loginRequired = async () => {
     if (isConfirmed) {
       window.location.href = "/login";
     }
+    
   }
+  return user;
 }
