@@ -13,11 +13,11 @@ const protect = require('./middleware/protect');
 app.use(express.json());
 app.use(cors());
 
-app.post('/signup',  async (req, res) => {
-  const { username,email, password,role } = req.body;
+app.post('/signup', async (req, res) => {
+  const { username, email, password, role } = req.body;
   const usersCollection = mongoConnection.getCollection('users');
 
-   const existingEmail = await usersCollection.findOne({ email });
+  const existingEmail = await usersCollection.findOne({ email });
   if (existingEmail) {
     return res.json({
       success: false,
@@ -34,57 +34,58 @@ app.post('/signup',  async (req, res) => {
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
-  const savedUser =  { username,email, role, password: hashedPassword ,joinedAt: new Date()}
+  const savedUser = { username, email, role, password: hashedPassword, joinedAt: new Date() }
   const token = jwt.sign(savedUser, process.env.JWT_SECRET);
-  await usersCollection.insertOne({...savedUser});
+  await usersCollection.insertOne({ ...savedUser });
 
-    res.json({
-      success: true,
-      message: "User created successfully",
-      data: token
-  })});
+  res.json({
+    success: true,
+    message: "User created successfully",
+    data: token
+  })
+});
 
 
-  app.post('/login', async (req, res) => {
-    const { username, email, password } = req.body;
-    const usersCollection = mongoConnection.getCollection('users');
-  
-    let user;
-    if (username) {
-      user = await usersCollection.findOne({ username });
-    } else if (email) {
-      user = await usersCollection.findOne({ email });
-    }
-  
-    if (!user) {
-      return res.json({
-        success: false,
-        message: "Incorrect email or username",
-      });
-    }
-  
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-  
-    if (!isPasswordValid) {
-      return res.json({
-        success: false,
-        message: "Incorrect password",
-      });
-    }
-    const token = jwt.sign({ id: user._id, role: user.role, username: user.username, email: user.email },
-       process.env.JWT_SECRET,
-        { expiresIn: '1d' });
-  
-    res.json({
-      success: true,
-      message: "Logged in successfully",
-      data: {
-        token,
-      },
+app.post('/login', async (req, res) => {
+  const { username, email, password } = req.body;
+  const usersCollection = mongoConnection.getCollection('users');
+
+  let user;
+  if (username) {
+    user = await usersCollection.findOne({ username });
+  } else if (email) {
+    user = await usersCollection.findOne({ email });
+  }
+
+  if (!user) {
+    return res.json({
+      success: false,
+      message: "Incorrect email or username",
     });
-  });
+  }
 
-  
+  const isPasswordValid = await bcrypt.compare(password, user.password);
+
+  if (!isPasswordValid) {
+    return res.json({
+      success: false,
+      message: "Incorrect password",
+    });
+  }
+  const token = jwt.sign({ id: user._id, role: user.role, username: user.username, email: user.email },
+    process.env.JWT_SECRET,
+    { expiresIn: '1d' });
+
+  res.json({
+    success: true,
+    message: "Logged in successfully",
+    data: {
+      token,
+    },
+  });
+});
+
+
 app.get('/userProfile', protect, async (req, res) => {
   const userId = req.user.id; // decoded from token
   try {
@@ -95,7 +96,7 @@ app.get('/userProfile', protect, async (req, res) => {
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
- 
+
     const blogsCount = await blogsCollection.countDocuments({ author: user.username });
     const savedBlogsCount = user.savedBlogs?.length || 0;
 
@@ -119,78 +120,78 @@ app.get('/userProfile', protect, async (req, res) => {
 
 
 app.delete('/deleteAccount', async (req, res) => {
-    const {  email, password } = req.body;
-    if (!email || !password) {
-        return res.status(400).json({ success: false, message: "Email and password are required" });
-    }
-    const usersCollection = mongoConnection.getCollection('users');
-    const user = await usersCollection.findOne({ email, password: { $exists: true } });
-    if (!user) {
-        return res.status(404).json({ success: false, message: "User not found" });
-    }
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-        return res.status(401).json({ success: false, message: "Incorrect password" });
-    }
-    await usersCollection.deleteOne({ email });
-    res.json({ success: true, message: "Account deleted successfully" });
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ success: false, message: "Email and password are required" });
+  }
+  const usersCollection = mongoConnection.getCollection('users');
+  const user = await usersCollection.findOne({ email, password: { $exists: true } });
+  if (!user) {
+    return res.status(404).json({ success: false, message: "User not found" });
+  }
+  const isPasswordValid = await bcrypt.compare(password, user.password);
+  if (!isPasswordValid) {
+    return res.status(401).json({ success: false, message: "Incorrect password" });
+  }
+  await usersCollection.deleteOne({ email });
+  res.json({ success: true, message: "Account deleted successfully" });
 });
 
 
 app.get('/myBlogs', async (req, res) => {
-    const { userId } = req.query;
+  const { userId } = req.query;
 
-    if (!userId) {
-        return res.status(400).json({ success: false, message: "User ID is required." });
-    }
+  if (!userId) {
+    return res.status(400).json({ success: false, message: "User ID is required." });
+  }
 
-    try {
-        const blogsCollection = mongoConnection.getCollection('blogs');
-        const usersCollection = mongoConnection.getCollection('users');
-
-        const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
-        if (!user) {
-            return res.status(404).json({ success: false, message: "User not found." });
-        }
-
-        const userBlogs = await blogsCollection.find({ author: user.username }).toArray(); // Assuming 'author' stores username
-
-        // Enrich with like/save status for the current user
-        const savedBlogIds = user?.savedBlogs?.map(id => id.toString()) || [];
-        const enrichedUserBlogs = userBlogs.map(blog => ({
-            ...blog,
-            isLiked: blog.likes?.includes(userId) || false,
-            isSaved: savedBlogIds.includes(blog._id.toString())
-        }));
-
-        res.json({
-            success: true,
-            message: "User's blogs fetched successfully",
-            data: enrichedUserBlogs
-        });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ success: false, message: "Server error." });
-    }
-});
-
-
- app.post("/createBlogs", async(req,res)=>{
-    const {title, imgUrl, description, category, content, author} = req.body;
+  try {
     const blogsCollection = mongoConnection.getCollection('blogs');
-    const existingBlog = await blogsCollection.findOne({title});
-    if(existingBlog){
-      return res.json({ message: 'Blog already exists' });
-  
+    const usersCollection = mongoConnection.getCollection('users');
+
+    const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found." });
     }
-    const savedBlog = await blogsCollection.insertOne({title, imgUrl, description, category, author, content,createdAt: new Date()  });
+
+    const userBlogs = await blogsCollection.find({ author: user.username }).toArray(); // Assuming 'author' stores username
+
+    // Enrich with like/save status for the current user
+    const savedBlogIds = user?.savedBlogs?.map(id => id.toString()) || [];
+    const enrichedUserBlogs = userBlogs.map(blog => ({
+      ...blog,
+      isLiked: blog.likes?.includes(userId) || false,
+      isSaved: savedBlogIds.includes(blog._id.toString())
+    }));
 
     res.json({
       success: true,
-      message: "BLOG added successfully"
+      message: "User's blogs fetched successfully",
+      data: enrichedUserBlogs
     });
-  })
-  
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Server error." });
+  }
+});
+
+
+app.post("/createBlogs", async (req, res) => {
+  const { title, imgUrl, description, category, content, author } = req.body;
+  const blogsCollection = mongoConnection.getCollection('blogs');
+  const existingBlog = await blogsCollection.findOne({ title });
+  if (existingBlog) {
+    return res.json({ message: 'Blog already exists' });
+
+  }
+  const savedBlog = await blogsCollection.insertOne({ title, imgUrl, description, category, author, content, createdAt: new Date() });
+
+  res.json({
+    success: true,
+    message: "BLOG added successfully"
+  });
+})
+
 app.post("/BlogContent", async (req, res) => {
   const { blogId } = req.body;
   const blogsCollection = mongoConnection.getCollection("blogs");
@@ -201,7 +202,7 @@ app.post("/BlogContent", async (req, res) => {
       return res.status(404).json({ success: false, message: "Blog not found" });
     }
 
-    res.json(blog); 
+    res.json(blog);
   } catch (err) {
     console.error("Error fetching blog:", err);
     res.status(500).json({ success: false, message: "Internal Server Error" });
@@ -252,9 +253,9 @@ app.post("/summarizeBlog", async (req, res) => {
   } catch (err) {
     const status = err.response?.status || 500;
     const message =
-    err.response?.data?.error?.message ||
-    err.message ||
-    "Gemini API failed to summarize content.";
+      err.response?.data?.error?.message ||
+      err.message ||
+      "Gemini API failed to summarize content.";
     console.error("Gemini summarization error:", err.message);
     res.status(500).json({
       success: false,
@@ -262,55 +263,24 @@ app.post("/summarizeBlog", async (req, res) => {
     });
   }
 });
-  
-app.post('/categories', async (req, res) => {
-  const { name } = req.body;
 
-  if (!name) {
-    return res.status(400).json({ success: false, message: "Category name is required" });
-  }
-
-  try {
-    const categoriesCollection = mongoConnection.getCollection('categories');
-
-    const existing = await categoriesCollection.findOne({ name });
-    if (existing) {
-      return res.json({
-        success: true,
-        message: "Category already exists"
-      });
-    }
-
-    await categoriesCollection.insertOne({ name });
-
-    res.json({
-      success: true,
-      message: "Category added successfully"
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: "Failed to add category" });
-  }
-});
 
 app.get('/categories', async (req, res) => {
   try {
-    const categoriesCollection = mongoConnection.getCollection('categories');
-    const allCategories = await categoriesCollection.find({}).toArray();
+    const blogCollection = mongoConnection.getCollection('blogs');
 
-    const names = allCategories.map(c => c.name);
+    const allCategories = await blogCollection.distinct("category");
 
     res.json({
       success: true,
-      message: "Categories fetched successfully",
-      data: names
+      message: "Categories fetched from blogs",
+      data: allCategories.filter(c => !!c)  // removes null/undefined/empty
     });
   } catch (error) {
-    console.error(error);
+    console.error("Error fetching blog categories:", error);
     res.status(500).json({ success: false, message: "Failed to fetch categories" });
   }
 });
-
 
 
 app.get("/allBlogs", async (req, res) => {
@@ -363,7 +333,7 @@ app.post("/likeBlog", async (req, res) => {
 
   const updatedBlog = await blogsCollection.updateOne(
     { _id: new ObjectId(blogId) },
-    { $addToSet: { likes: userId } } 
+    { $addToSet: { likes: userId } }
   );
 
   res.json({ success: true, message: "Blog liked successfully" });
@@ -380,22 +350,22 @@ app.post("/unlikeBlog", async (req, res) => {
 
   await blogsCollection.updateOne(
     { _id: new ObjectId(blogId) },
-    { $pull: { likes: userId } } 
+    { $pull: { likes: userId } }
   );
 
   res.json({ success: true, message: "Blog unliked successfully" });
 });
 
-app.get("/likeCount", async (req, res)=>{
-   const { blogId } = req.query;
-    const blogsCollection = mongoConnection.getCollection('blogs');
-    const blog = await blogsCollection.findOne({ _id: new ObjectId(blogId) });
+app.get("/likeCount", async (req, res) => {
+  const { blogId } = req.query;
+  const blogsCollection = mongoConnection.getCollection('blogs');
+  const blog = await blogsCollection.findOne({ _id: new ObjectId(blogId) });
   const likeCount = blog.likes?.length || 0;
-    res.json({
-      success: true,
-      message: "Like count fetched successfully",
-      data: likeCount
-    });
+  res.json({
+    success: true,
+    message: "Like count fetched successfully",
+    data: likeCount
+  });
 })
 
 
@@ -599,6 +569,27 @@ app.get('/savedBlogs', async (req, res) => {
   }
 });
 
+app.get('/Blogsbytitle', async (req, res) => {
+  const blogsCollection = mongoConnection.getCollection('blogs');
+  const title = req.query.title;
+
+  const regex = new RegExp(title, 'i');
+  const foundBlog = await blogsCollection.find({ title: { $regex: regex } }).toArray();
+
+  if (foundBlog) {
+    res.json({
+      success: true,
+      message: 'Blog fetched successfully',
+      data: foundBlog,
+    });
+  } else {
+    res.json({
+      success: false,
+      message: 'No blog found for this title',
+      data: null,
+    });
+  }
+});
 
 app.get('/BlogsbyUsername', async (req, res) => {
   const blogsCollection = mongoConnection.getCollection('blogs');
@@ -627,9 +618,9 @@ app.get('/BlogsbyUsername', async (req, res) => {
 
 app.get("/admin/users", async (_, res) => {
   const users = await mongoConnection
-      .getCollection("users")
-      .find({}, { projection: { password: 0 } })
-      .toArray();
+    .getCollection("users")
+    .find({}, { projection: { password: 0 } })
+    .toArray();
   res.json({ success: true, data: users, message: "Users fetched successfully" });
 });
 
@@ -637,25 +628,25 @@ app.get("/admin/users", async (_, res) => {
 app.delete("/admin/deleteUser", async (req, res) => {
   const { adminEmail, password, targetEmail } = req.body;
 
-  const users  = mongoConnection.getCollection("users");
-  const blogs  = mongoConnection.getCollection("blogs");
+  const users = mongoConnection.getCollection("users");
+  const blogs = mongoConnection.getCollection("blogs");
 
-  const admin  = await users.findOne({ email: adminEmail });
+  const admin = await users.findOne({ email: adminEmail });
   if (!admin || admin.role !== "admin")
-    return res.status(403).json({ success:false, message:"Admin only." });
+    return res.status(403).json({ success: false, message: "Admin only." });
 
   const ok = await bcrypt.compare(password, admin.password);   // <‑‑ hashed pwd
   if (!ok)
-    return res.status(401).json({ success:false, message:"Wrong password." });
+    return res.status(401).json({ success: false, message: "Wrong password." });
 
   const target = await users.findOne({ email: targetEmail });
   if (!target)
-    return res.status(404).json({ success:false, message:"User not found." });
+    return res.status(404).json({ success: false, message: "User not found." });
 
   await users.deleteOne({ _id: target._id });
   await blogs.deleteMany({ author: target.username });
 
-  res.json({ success:true, message:"User & blogs deleted." });
+  res.json({ success: true, message: "User & blogs deleted." });
 });
 
 
@@ -666,18 +657,18 @@ app.put("/admin/updateRole", async (req, res) => {
 
   const admin = await users.findOne({ email: adminEmail });
   if (!admin || admin.role !== "admin")
-    return res.status(403).json({ success:false, message:"Admin only." });
+    return res.status(403).json({ success: false, message: "Admin only." });
 
   const ok = await bcrypt.compare(password, admin.password);
   if (!ok)
-    return res.status(401).json({ success:false, message:"Wrong password." });
+    return res.status(401).json({ success: false, message: "Wrong password." });
 
   await users.updateOne(
     { _id: new ObjectId(targetId) },
     { $set: { role: newRole } }
   );
 
-  res.json({ success:true, message:"Role updated." });
+  res.json({ success: true, message: "Role updated." });
 });
 
 
@@ -761,7 +752,7 @@ app.put('/updateBlog', async (req, res) => {
 app.use(express.static(path.join(__dirname, '..', 'client', 'build')));
 
 app.get('*', (req, res) => {
-res.sendFile(path.join(__dirname, '..', 'client', 'build', 'index.html'))
+  res.sendFile(path.join(__dirname, '..', 'client', 'build', 'index.html'))
 });
 
 mongoConnection.connect()
