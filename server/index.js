@@ -10,39 +10,168 @@ const path = require('path');
 
 const { ObjectId } = require('mongodb');
 const protect = require('./middleware/protect');
+const { sendVerificationEmail } = require('./utils/emailService');
 app.use(express.json());
 app.use(cors());
 
-app.post('/signup', async (req, res) => {
+// app.post('/signup', async (req, res) => {
+//   const { username, email, password, role } = req.body;
+//   const usersCollection = mongoConnection.getCollection('users');
+
+//   const existingEmail = await usersCollection.findOne({ email });
+//   if (existingEmail) {
+//     return res.json({
+//       success: false,
+//       message: "Email already exists"
+//     });
+//   }
+
+//   const existingUsername = await usersCollection.findOne({ username });
+//   if (existingUsername) {
+//     return res.json({
+//       success: false,
+//       message: "Username already exists"
+//     });
+//   }
+
+//   const hashedPassword = await bcrypt.hash(password, 10);
+//   const savedUser = { username, email, role, password: hashedPassword, joinedAt: new Date() }
+//   const token = jwt.sign(savedUser, process.env.JWT_SECRET);
+//   await usersCollection.insertOne({ ...savedUser });
+
+//   res.json({
+//     success: true,
+//     message: "User created successfully",
+//     data: token
+//   })
+// });
+
+
+function generateOTP() {
+  return Math.floor(1000 + Math.random() * 9000);
+}
+
+app.post("/signup", async (req, res) => {
   const { username, email, password, role } = req.body;
-  const usersCollection = mongoConnection.getCollection('users');
+  const usersCollection = mongoConnection.getCollection("users");
 
-  const existingEmail = await usersCollection.findOne({ email });
-  if (existingEmail) {
-    return res.json({
-      success: false,
-      message: "Email already exists"
-    });
+  const existingUser = await usersCollection.findOne({ email });
+
+  if (existingUser) {
+    if (existingUser.isVerified) {
+      return res.json({ success: false, message: "Email already exists" });
+    } else {
+      // 👇 Email exists but not verified: resend OTP
+      const otp = generateOTP();
+      const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      await usersCollection.updateOne(
+        { email },
+        {
+          $set: {
+            username,
+            password: hashedPassword,
+            role,
+            otp,
+            otpExpiry,
+            joinedAt: new Date(),
+            isVerified: false,
+          },
+        }
+      );
+
+      const html = `
+        <h2>Welcome back to Blogify, ${username}!</h2>
+        <p>Your new OTP is:</p>
+        <h2>${otp}</h2>
+        <p>This OTP is valid for 10 minutes.</p>
+      `;
+
+      await sendVerificationEmail(email, "Your new Blogify OTP", html);
+
+      return res.json({
+        success: true,
+        message:
+          "Account already exists but not verified. A new OTP has been sent to your email.",
+      });
+    }
   }
 
-  const existingUsername = await usersCollection.findOne({ username });
-  if (existingUsername) {
-    return res.json({
-      success: false,
-      message: "Username already exists"
-    });
-  }
-
+  // 👇 First-time signup
   const hashedPassword = await bcrypt.hash(password, 10);
-  const savedUser = { username, email, role, password: hashedPassword, joinedAt: new Date() }
-  const token = jwt.sign(savedUser, process.env.JWT_SECRET);
-  await usersCollection.insertOne({ ...savedUser });
+  const otp = generateOTP();
+  const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+  const newUser = {
+    username,
+    email,
+    role,
+    password: hashedPassword,
+    isVerified: false,
+    otp,
+    otpExpiry,
+    joinedAt: new Date(),
+  };
+
+  await usersCollection.insertOne(newUser);
+
+  const html = `
+    <h2>Welcome to Blogify, ${username}!</h2>
+    <p>Your OTP for email verification is:</p>
+    <h2>${otp}</h2>
+    <p>This OTP is valid for 10 minutes.</p>
+  `;
+
+  await sendVerificationEmail(email, "Your Blogify OTP", html);
 
   res.json({
     success: true,
-    message: "User created successfully",
-    data: token
-  })
+    message: "User created successfully. OTP sent to your email.",
+  });
+});
+
+app.post("/resend-otp", async (req, res) => {
+  const { email } = req.body;
+  const usersCollection = mongoConnection.getCollection("users");
+  const user = await usersCollection.findOne({ email });
+
+  if (!user || user.isVerified) {
+    return res.json({
+      success: false,
+      message: "Invalid user or already verified.",
+    });
+  }
+
+  const otp = generateOTP();
+  const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+  await usersCollection.updateOne({ email }, { $set: { otp, otpExpiry } });
+
+  const html = `<h2>Your Blogify OTP:</h2><h3>${otp}</h3><p>Valid for 10 minutes.</p>`;
+  await sendVerificationEmail(email, "Resent OTP - Blogify", html);
+
+  res.json({ success: true, message: "OTP resent successfully." });
+});
+
+app.post("/verify-otp", async (req, res) => {
+  const { email, otp } = req.body;
+  const usersCollection = mongoConnection.getCollection("users");
+  const user = await usersCollection.findOne({ email });
+
+  if (!user) return res.json({ success: false, message: "User not found." });
+  if (user.isVerified)
+    return res.json({ success: false, message: "User already verified." });
+  if (user.otp !== parseInt(otp) || new Date() > new Date(user.otpExpiry)) {
+    return res.json({ success: false, message: "Invalid or expired OTP." });
+  }
+
+  await usersCollection.updateOne(
+    { email },
+    { $set: { isVerified: true }, $unset: { otp: "", otpExpiry: "" } }
+  );
+
+  return res.json({ success: true, message: "Email verified successfully!" });
 });
 
 
@@ -72,6 +201,15 @@ app.post('/login', async (req, res) => {
       message: "Incorrect password",
     });
   }
+
+  if (!user.isVerified) {
+  return res.json({
+    success: false,
+    message: "Email not verified. Please check your inbox.",
+  });
+}
+
+
   const token = jwt.sign({ id: user._id, role: user.role, username: user.username, email: user.email },
     process.env.JWT_SECRET,
     { expiresIn: '1d' });
@@ -84,6 +222,48 @@ app.post('/login', async (req, res) => {
     },
   });
 });
+
+// Send OTP
+app.post('/send-reset-otp', async (req, res) => {
+  const { email } = req.body;
+  const users = mongoConnection.getCollection('users');
+
+  const user = await users.findOne({ email });
+  if (!user) return res.json({ success: false, message: "Email not registered" });
+
+  const otp = Math.floor(1000 + Math.random() * 9000).toString();
+  const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+
+  await users.updateOne({ email }, { $set: { resetOtp: otp, resetOtpExpiry: otpExpiry } });
+
+  await sendVerificationEmail(email, "Your Blogify Password Reset OTP", `
+    <h2>Forgot Password</h2>
+    <p>Your OTP is <strong>${otp}</strong></p>
+    <p>This OTP is valid for 10 minutes.</p>
+  `);
+
+  res.json({ success: true, message: "OTP sent to your email" });
+});
+
+// Verify OTP & Reset Password
+app.post('/verify-reset-otp', async (req, res) => {
+  const { email, otp, newPassword } = req.body;
+  const users = mongoConnection.getCollection('users');
+
+  const user = await users.findOne({ email });
+  if (!user || user.resetOtp !== otp || new Date(user.resetOtpExpiry) < new Date()) {
+    return res.json({ success: false, message: "Invalid or expired OTP" });
+  }
+
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+  await users.updateOne(
+    { email },
+    { $set: { password: hashedPassword }, $unset: { resetOtp: "", resetOtpExpiry: "" } }
+  );
+
+  res.json({ success: true, message: "Password reset successfully" });
+});
+
 
 
 app.get('/userProfile', protect, async (req, res) => {
@@ -175,7 +355,6 @@ app.get('/myBlogs', async (req, res) => {
   }
 });
 
-
 app.post("/createBlogs", async (req, res) => {
   const { title, imgUrl, description, category, content, author } = req.body;
   const blogsCollection = mongoConnection.getCollection('blogs');
@@ -264,7 +443,6 @@ app.post("/summarizeBlog", async (req, res) => {
   }
 });
 
-
 app.get('/categories', async (req, res) => {
   try {
     const blogCollection = mongoConnection.getCollection('blogs');
@@ -282,7 +460,6 @@ app.get('/categories', async (req, res) => {
   }
 });
 
-
 app.get("/allBlogs", async (req, res) => {
   const userId = req.query.userId;
 
@@ -290,7 +467,6 @@ app.get("/allBlogs", async (req, res) => {
     return res.json({ success: false, message: "Missing userId in query" });
   }
 
-  // 💥 Validate userId
   if (!ObjectId.isValid(userId)) {
     return res.status(400).json({ success: false, message: "Invalid userId format" });
   }
@@ -317,6 +493,51 @@ app.get("/allBlogs", async (req, res) => {
     data: enrichedBlogs
   });
 });
+
+app.delete('/deleteBlog', async (req, res) => {
+  const blogsCollection = mongoConnection.getCollection('blogs');
+  const title = req.query.title;
+
+
+  const foundBlog = await blogsCollection.deleteOne({ title: title });
+
+  if (foundBlog) {
+    res.json({
+      success: true,
+      message: 'Blog deleted successfully'
+    });
+  } else {
+    res.json({
+      success: false,
+      message: 'No blog found for this user'
+    });
+  }
+});
+
+app.put('/updateBlog', async (req, res) => {
+  const blogsCollection = mongoConnection.getCollection('blogs');
+
+  const title = req.query.title;
+  const imgUrl = req.query.imgUrl;
+  const description = req.query.description;
+  const category = req.query.category;
+  const content = req.query.content;
+
+  const foundBlog = await blogsCollection.updateOne({ title: title }, { $set: { imgUrl: imgUrl, description: description, category: category, content: content } });
+
+  if (foundBlog) {
+    res.json({
+      success: true,
+      message: 'Blog updated successfully'
+    });
+  } else {
+    res.json({
+      success: false,
+      message: 'No blog found for this user'
+    });
+  }
+});
+
 
 app.post("/likeBlog", async (req, res) => {
   const { blogId, userId } = req.body;
@@ -478,7 +699,6 @@ app.get('/commentCount', async (req, res) => {
 });
 
 
-
 app.post("/saveBlog", async (req, res) => {
   const { blogId, userId } = req.body;
   const usersCollection = mongoConnection.getCollection('users');
@@ -614,7 +834,6 @@ app.get('/BlogsbyUsername', async (req, res) => {
 });
 
 
-/* ===============  ADMIN ROUTES  =============== */
 
 app.get("/admin/users", async (_, res) => {
   const users = await mongoConnection
@@ -623,7 +842,6 @@ app.get("/admin/users", async (_, res) => {
     .toArray();
   res.json({ success: true, data: users, message: "Users fetched successfully" });
 });
-
 
 app.delete("/admin/deleteUser", async (req, res) => {
   const { adminEmail, password, targetEmail } = req.body;
@@ -649,7 +867,6 @@ app.delete("/admin/deleteUser", async (req, res) => {
   res.json({ success: true, message: "User & blogs deleted." });
 });
 
-
 app.put("/admin/updateRole", async (req, res) => {
   const { adminEmail, password, targetId, newRole } = req.body;
 
@@ -671,7 +888,6 @@ app.put("/admin/updateRole", async (req, res) => {
   res.json({ success: true, message: "Role updated." });
 });
 
-
 app.get("/likedBlogs", async (req, res) => {
   const { userId } = req.query;
   if (!userId) return res.status(400).json({ success: false, message: "userId missing" });
@@ -681,7 +897,6 @@ app.get("/likedBlogs", async (req, res) => {
   res.json({ success: true, data: blogs });
 });
 
-// Get dashboard stats for admin
 app.get("/dashboardStats", async (req, res) => {
   const userId = req.query.userId;
   if (!userId) return res.status(400).json({ success: false, message: "Missing userId" });
@@ -704,50 +919,6 @@ app.get("/dashboardStats", async (req, res) => {
   });
 });
 
-
-app.delete('/deleteBlog', async (req, res) => {
-  const blogsCollection = mongoConnection.getCollection('blogs');
-  const title = req.query.title;
-
-
-  const foundBlog = await blogsCollection.deleteOne({ title: title });
-
-  if (foundBlog) {
-    res.json({
-      success: true,
-      message: 'Blog deleted successfully'
-    });
-  } else {
-    res.json({
-      success: false,
-      message: 'No blog found for this user'
-    });
-  }
-});
-
-app.put('/updateBlog', async (req, res) => {
-  const blogsCollection = mongoConnection.getCollection('blogs');
-
-  const title = req.query.title;
-  const imgUrl = req.query.imgUrl;
-  const description = req.query.description;
-  const category = req.query.category;
-  const content = req.query.content;
-
-  const foundBlog = await blogsCollection.updateOne({ title: title }, { $set: { imgUrl: imgUrl, description: description, category: category, content: content } });
-
-  if (foundBlog) {
-    res.json({
-      success: true,
-      message: 'Blog updated successfully'
-    });
-  } else {
-    res.json({
-      success: false,
-      message: 'No blog found for this user'
-    });
-  }
-});
 
 app.use(express.static(path.join(__dirname, '..', 'client', 'build')));
 
