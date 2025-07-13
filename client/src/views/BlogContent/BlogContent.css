@@ -1,0 +1,93 @@
+.comment-row .comment-actions{
+  opacity:0;
+  transition:opacity .2s ease;
+}
+.comment-row:hover .comment-actions{
+  opacity:1;
+}
+
+@media (max-width: 576px){
+  .comment-row .comment-actions{
+    opacity:1;
+  }
+}
+
+.avatar-circle {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #555;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+/* ========== AI Summary ========== */
+
+.ai-summary-card {
+  background: #1d1d1d;
+  border-radius: 16px;
+  padding: 1.5rem;
+  border: 1px solid #333;
+  color: #e0e0e0;
+  margin-top: 2rem;
+}
+
+.emoji-face {
+  font-size: 28px;
+  margin-right: 4px;
+  animation: bounce 1.6s infinite ease-in-out;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+
+.ai-bubble {
+  background-color: #292929;
+  border-radius: 14px;
+  padding: 1rem 1.25rem;
+  color: #e0e0e0;
+  flex-grow: 1;
+  box-shadow: inset 0 0 0 1px #3a3a3a;
+  animation: fadeIn 0.4s ease-in-out;
+  font-size: 1rem;
+  min-height: 40px;
+  line-height: 1.6;
+}
+
+.typing-animation {
+  font-style: italic;
+  color: #aaa;
+  min-height: 40px;
+}
+
+.cursor {
+  animation: blink 1s infinite;
+  margin-left: 2px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 1; }
+}
+
+.assistant-name span {
+  display: inline-block;
+  animation: wave 1.2s ease-in-out infinite;
+}
+
+@keyframes wave {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-4px); }
+}
+
