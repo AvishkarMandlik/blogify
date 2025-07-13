@@ -13,6 +13,8 @@ export const loginRequired = async () => {
     });
 
     if (isConfirmed) {
+      localStorage.clear();
+      sessionStorage.clear();
       window.location.href = "/login";
     }
     
