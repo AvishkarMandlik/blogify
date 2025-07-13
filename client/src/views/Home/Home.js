@@ -28,7 +28,7 @@ function Home() {
     setLoading(true);
     try {
       const response = await axios.get(
-        `http://localhost:5000/allBlogs?userId=${user?.id}`
+        `/allBlogs?userId=${user?.id}`
       );
       // headers: {
       //   Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -51,7 +51,7 @@ function Home() {
       // const response = await axios.get(`http://localhost:5000/Blogsbytitle?title=${searchText}`);
       const trimmedText = searchText.trim();
       const response = await axios.get(
-        `http://localhost:5000/Blogsbytitle?title=${trimmedText}`
+        `/Blogsbytitle?title=${trimmedText}`
       );
       setAllBlogsitems(response.data.data);
     } catch (error) {
@@ -62,7 +62,7 @@ function Home() {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const res = await axios.get("http://localhost:5000/categories");
+        const res = await axios.get("/categories");
         if (res.data.success) setCategories(res.data.data);
       } catch (err) {
         console.error("Failed to fetch categories", err);
