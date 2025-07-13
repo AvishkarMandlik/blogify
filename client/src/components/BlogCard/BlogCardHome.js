@@ -39,8 +39,8 @@ export default function BlogCardHome({
     (async () => {
       try {
         const [likeRes, commentRes] = await Promise.all([
-          axios.get(`http://localhost:5000/likeCount?blogId=${blogId}`),
-          axios.get(`http://localhost:5000/comments?blogId=${blogId}`),
+          axios.get(`/likeCount?blogId=${blogId}`),
+          axios.get(`/comments?blogId=${blogId}`),
         ]);
 
         setLikeCount(likeRes.data.data);
@@ -61,7 +61,7 @@ export default function BlogCardHome({
     e.preventDefault();
     const url = liked ? "unlikeBlog" : "likeBlog";
     try {
-      const { data } = await axios.post(`http://localhost:5000/${url}`, {
+      const { data } = await axios.post(`/${url}`, {
         blogId,
         userId: currentUser?.id,
       });
@@ -77,7 +77,7 @@ export default function BlogCardHome({
   const handleSubmitComment = async () => {
     if (!commentText.trim()) return;
     try {
-      await axios.post("http://localhost:5000/addComment", {
+      await axios.post("/addComment", {
         blogId,
         userId: currentUser?.id,
         comment: commentText.trim(),
@@ -96,7 +96,7 @@ export default function BlogCardHome({
     e.preventDefault();
     const url = saved ? "unsaveBlog" : "saveBlog";
     try {
-      const { data } = await axios.post(`http://localhost:5000/${url}`, {
+      const { data } = await axios.post(`/${url}`, {
         blogId,
         userId: currentUser?.id,
       });
