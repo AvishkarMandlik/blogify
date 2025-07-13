@@ -35,7 +35,8 @@ import {
 } from "react-icons/fa";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Swal from "sweetalert2";
-import api from "../util/api";
+// import api from "../util/api";
+import axios from "axios";
 import Navbar from "../components/Navbar/Navbar";
 import { getUserProfile } from "../util/getUserProfile";
 
@@ -124,24 +125,24 @@ export default function Dashboard() {
     (async () => {
       try {
         const base = [
-          api.get("/userProfile", {
+          axios.get("/userProfile", {
             params: { userId: auth.userId },
             headers: {
               Authorization: `Bearer ${localStorage.getItem("token")}`,
             },
           }),
-          api.get("/savedBlogs", { params: { userId: auth.userId } }),
-          api.get("/likedBlogs", { params: { userId: auth.userId } }),
+          axios.get("/savedBlogs", { params: { userId: auth.userId } }),
+          axios.get("/likedBlogs", { params: { userId: auth.userId } }),
         ];
 
         const adminPart =
           auth.role === "admin"
             ? [
-                api.get("/dashboardStats", { params: { userId: auth.userId } }),
-                api.get("/allBlogs", { params: { userId: auth.userId } }),
-                api.get("/admin/users"),
+                axios.get("/dashboardStats", { params: { userId: auth.userId } }),
+                axios.get("/allBlogs", { params: { userId: auth.userId } }),
+                axios.get("/admin/users"),
               ]
-            : [api.get("/myBlogs", { params: { userId: auth.userId } })];
+            : [axios.get("/myBlogs", { params: { userId: auth.userId } })];
 
         const res = await Promise.all([...base, ...adminPart]);
 
@@ -190,7 +191,7 @@ export default function Dashboard() {
     mutate(setLikedBlogs);
 
     try {
-      await api.post(liked ? "/unlikeBlog" : "/likeBlog", {
+      await axios.post(liked ? "/unlikeBlog" : "/likeBlog", {
         blogId: blog._id,
         userId: auth.userId,
       });
@@ -204,7 +205,7 @@ export default function Dashboard() {
       saved ? prev.filter((b) => b._id !== blog._id) : [...prev, blog]
     );
     try {
-      await api.post(saved ? "/unsaveBlog" : "/saveBlog", {
+      await axios.post(saved ? "/unsaveBlog" : "/saveBlog", {
         blogId: blog._id,
         userId: auth.userId,
       });
@@ -217,7 +218,7 @@ export default function Dashboard() {
 
   const fetchCategories = async () => {
     try {
-      const res = await api.get("/categories");
+      const res = await axios.get("/categories");
       if (res.data.success) {
         setCategories(res.data.data);
       }
@@ -290,11 +291,11 @@ export default function Dashboard() {
 
     try {
       if (editMode)
-        await api.put("/updateBlog", null, {
+        await axios.put("/updateBlog", null, {
           params: { title: blogForm.title, ...blogForm },
         });
       else
-        await api.post("/createBlogs", { ...blogForm, author: auth.username });
+        await axios.post("/createBlogs", { ...blogForm, author: auth.username });
 
       Swal.fire({
         icon: "success",
@@ -316,7 +317,7 @@ export default function Dashboard() {
   const deleteBlog = async (title) => {
     if (!window.confirm("Delete blog?")) return;
     try {
-      await api.delete("/deleteBlog", { params: { title } });
+      await axios.delete("/deleteBlog", { params: { title } });
       Swal.fire({
         icon: "success",
         title: "Deleted",
@@ -334,7 +335,7 @@ export default function Dashboard() {
     const adminPwd = prompt("Enter admin password to confirm:");
     if (!adminPwd) return;
     try {
-      await api.put("/admin/updateRole", {
+      await axios.put("/admin/updateRole", {
         targetId: uid,
         newRole,
         adminEmail: auth.email,
@@ -390,7 +391,7 @@ export default function Dashboard() {
 
   const deleteUser = async () => {
     try {
-      await api.delete("/admin/deleteUser", {
+      await axios.delete("/admin/deleteUser", {
         data: {
           adminEmail: auth.email,
           targetEmail: targetUser.email,
@@ -435,7 +436,7 @@ export default function Dashboard() {
       return;
     }
     try {
-      await api.delete("/deleteAccount", { data: selfCred });
+      await axios.delete("/deleteAccount", { data: selfCred });
       localStorage.clear();
       Swal.fire({
         icon: "success",

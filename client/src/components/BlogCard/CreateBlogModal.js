@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Modal, Button, Form } from "react-bootstrap";
-import api from "../../util/api";
+// import api from "../../util/api";
+import axios from "axios";
 
 export default function CreateBlogModal({ show, onHide, onSuccess, author, editMode = false, blogData = {} }) {
   const emptyBlog = { title: "", imgUrl: "", description: "", category: "", content: "" };
@@ -18,7 +19,7 @@ useEffect(() => {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const res = await api.get("/categories");
+        const res = await axios.get("/categories");
         if (res.data.success) setCategories(res.data.data);
       } catch {
         console.error("Category fetch failed");
@@ -31,11 +32,11 @@ useEffect(() => {
     e.preventDefault();
     try {
       if (editMode) {
-        await api.put("/updateBlog", null, {
+        await axios.put("/updateBlog", null, {
           params: { title: blogForm.title, ...blogForm }
         });
       } else {
-        await api.post("/createBlogs", { ...blogForm, author });
+        await axios.post("/createBlogs", { ...blogForm, author });
       }
       onSuccess();
       onHide();
