@@ -83,13 +83,59 @@ app.post("/signup", async (req, res) => {
       );
 
       const html = `
-        <h2>Welcome back to Blogify, ${username}!</h2>
-        <p>Your new OTP is:</p>
-        <h2>${otp}</h2>
-        <p>This OTP is valid for 10 minutes.</p>
-      `;
+        <!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #7fb7f0ff;
+      padding: 20px;
+    }
+    .container {
+      max-width: 600px;
+      background: #ffffff;
+      padding: 30px;
+      margin: auto;
+      border-radius: 10px;
+      box-shadow: 0 2px 15px rgba(0, 0, 0, 0.05);
+    }
+    .brand-text { color: #43ABE8; font-weight: bold; }
+    .brand-accent { color: #0f0e0eff; font-weight: bold; }
+    .username { font-weight: 650; color: #1F75FE; }
+    .otp {
+      font-size: 36px;
+      color: #1F305E;
+      font-weight: bold;
+      letter-spacing: 2px;
+      margin: 20px 0;
+    }
+    .footer {
+      font-size: 12px;
+      color: #777;
+      margin-top: 40px;
+      text-align: center;
+    }
+    a { color: #0bacecff; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>👋 Hello <span class="username">${username}</span>,</h2>
+    <p>Welcome Back to <span class="brand-text">Blog</span><span class="brand-accent">ify</span>!</p>
+    <p>To verify your email address, use the One-Time Password (OTP) below:</p>
+    <div class="otp">${otp}</div>
+    <p>This OTP is valid for <strong>10 minutes</strong>.</p>
+    <p>If you didn’t request this, you can safely ignore it.</p>
+    <div class="footer">
+      Need help? Contact us at <a href="mailto:mandlikavi121@gmail.com">mandlikavi121@gmail.com</a><br />
+      © ${new Date().getFullYear()} Blogify. All rights reserved.
+    </div>
+  </div>
+</body>
+</html> `;
 
-      await sendVerificationEmail(email, "Your new Blogify OTP", html);
+      await sendVerificationEmail(email, "Verify Your Blogify Email Address", html);
 
       return res.json({
         success: true,
@@ -118,11 +164,71 @@ app.post("/signup", async (req, res) => {
   await usersCollection.insertOne(newUser);
 
   const html = `
-    <h2>Welcome to Blogify, ${username}!</h2>
-    <p>Your OTP for email verification is:</p>
-    <h2>${otp}</h2>
-    <p>This OTP is valid for 10 minutes.</p>
-  `;
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #7fb7f0ff;
+      padding: 20px;
+    }
+    .container {
+      max-width: 600px;
+      background: #ffffff;
+      padding: 30px;
+      margin: auto;
+      border-radius: 10px;
+      box-shadow: 0 2px 15px rgba(0, 0, 0, 0.05);
+    }
+    .brand-text {
+      color: #43ABE8;
+      font-weight: bold;
+    }
+    .brand-accent {
+      color: #0f0e0eff;
+      font-weight: bold;
+    }
+    .username {
+      font-weight: 650;
+      color: #1F75FE;
+
+    }
+    .otp {
+      font-size: 36px;
+      color: #1F305E;
+      font-weight: bold;
+      letter-spacing: 2px;
+      margin: 20px 0;
+    }
+    .footer {
+      font-size: 12px;
+      color: #777;
+      margin-top: 40px;
+      text-align: center;
+    }
+    a {
+      color: #0bacecff;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>👋Hello <span class="username">${username}</span>,</h2>
+    <p>Welcome to <span class="brand-text">Blog</span><span class="brand-accent">ify</span>!</p>
+    <p>To verify your email address, use the One-Time Password (OTP) below:</p>
+    <div class="otp">${otp}</div>
+    <p>This OTP is valid for <strong>10 minutes</strong>.</p>
+    <p>If you didn’t request this, you can safely ignore it.</p>
+    <div class="footer">
+      Need help? Contact us at <a href="mailto:mandlikavi121@gmail.com">mandlikavi121@gmail.com</a><br />
+      © ${new Date().getFullYear()} Blogify. All rights reserved.
+    </div>
+  </div>
+</body>
+</html>
+`;
 
   await sendVerificationEmail(email, "Your Blogify OTP", html);
 
@@ -143,13 +249,63 @@ app.post("/resend-otp", async (req, res) => {
       message: "Invalid user or already verified.",
     });
   }
-
+  const username = user.username; 
   const otp = generateOTP();
   const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
   await usersCollection.updateOne({ email }, { $set: { otp, otpExpiry } });
 
-  const html = `<h2>Your Blogify OTP:</h2><h3>${otp}</h3><p>Valid for 10 minutes.</p>`;
-  await sendVerificationEmail(email, "Resent OTP - Blogify", html);
+  const html = `
+        <!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #7fb7f0ff;
+      padding: 20px;
+    }
+    .container {
+      max-width: 600px;
+      background: #ffffff;
+      padding: 30px;
+      margin: auto;
+      border-radius: 10px;
+      box-shadow: 0 2px 15px rgba(0, 0, 0, 0.05);
+    }
+    .brand-text { color: #43ABE8; font-weight: bold; }
+    .brand-accent { color: #0f0e0eff; font-weight: bold; }
+    .username { font-weight: 650; color: #1F75FE; }
+    .otp {
+      font-size: 36px;
+      color: #1F305E;
+      font-weight: bold;
+      letter-spacing: 2px;
+      margin: 20px 0;
+    }
+    .footer {
+      font-size: 12px;
+      color: #777;
+      margin-top: 40px;
+      text-align: center;
+    }
+    a { color: #0bacecff; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>👋 Hello again <span class="username">${username}</span>,</h2>
+    <p>Here is your new OTP for <span class="brand-text">Blog</span><span class="brand-accent">ify</span>:</p>
+    <div class="otp">${otp}</div>
+    <p>This OTP is valid for <strong>10 minutes</strong>.</p>
+    <p>If you didn’t request this, you can safely ignore it.</p>
+    <div class="footer">
+      Need help? Contact us at <a href="mailto:mandlikavi121@gmail.com">mandlikavi121@gmail.com</a><br />
+      © ${new Date().getFullYear()} Blogify. All rights reserved.
+    </div>
+  </div>
+</body>
+</html> `;
+  await sendVerificationEmail(email, "Your New OTP - Blogify", html);
 
   res.json({ success: true, message: "OTP resent successfully." });
 });
@@ -236,11 +392,60 @@ app.post('/send-reset-otp', async (req, res) => {
 
   await users.updateOne({ email }, { $set: { resetOtp: otp, resetOtpExpiry: otpExpiry } });
 
-  await sendVerificationEmail(email, "Your Blogify Password Reset OTP", `
-    <h2>Forgot Password</h2>
-    <p>Your OTP is <strong>${otp}</strong></p>
-    <p>This OTP is valid for 10 minutes.</p>
-  `);
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #7fb7f0ff;
+      padding: 20px;
+    }
+    .container {
+      max-width: 600px;
+      background: #ffffff;
+      padding: 30px;
+      margin: auto;
+      border-radius: 10px;
+      box-shadow: 0 2px 15px rgba(0, 0, 0, 0.05);
+    }
+    .brand-text { color: #43ABE8; font-weight: bold; }
+    .brand-accent { color: #0f0e0eff; font-weight: bold; }
+    .username { font-weight: 650; color: #1F75FE; }
+    .otp {
+      font-size: 36px;
+      color: #1F305E;
+      font-weight: bold;
+      letter-spacing: 2px;
+      margin: 20px 0;
+    }
+    .footer {
+      font-size: 12px;
+      color: #777;
+      margin-top: 40px;
+      text-align: center;
+    }
+    a { color: #0bacecff; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Password Reset Request</h2>
+    <p>You requested to reset your <span class="brand-text">Blog</span><span class="brand-accent">ify</span> account password.</p>
+    <p>Use the OTP below to reset your password:</p>
+    <div class="otp">${otp}</div>
+    <p>This code is valid for <strong>10 minutes</strong>.</p>
+    <p>If you didn’t request this, you can safely ignore this email.</p>
+    <div class="footer">
+      Need help? Contact us at <a href="mailto:mandlikavi121@gmail.com">mandlikavi121@gmail.com</a><br />
+      © ${new Date().getFullYear()} Blogify. All rights reserved.
+    </div>
+  </div>
+</body>
+</html>
+`
+
+  await sendVerificationEmail(email, "Blogify Password Reset Code", html);
 
   res.json({ success: true, message: "OTP sent to your email" });
 });
