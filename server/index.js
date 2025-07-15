@@ -474,7 +474,7 @@ app.get("/allBlogs", async (req, res) => {
   const blogsCollection = mongoConnection.getCollection('blogs');
   const usersCollection = mongoConnection.getCollection('users');
 
-  const allBlogs = await blogsCollection.find({}).toArray();
+  const allBlogs = await blogsCollection.find({}).sort({ createdAt: -1 }).toArray();
   const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
 
   const savedBlogIds = user?.savedBlogs?.map(id => id.toString()) || [];
@@ -781,6 +781,19 @@ app.get('/savedBlogs', async (req, res) => {
     const savedBlogs = await blogsCollection.find({
       _id: { $in: savedBlogIds }
     }).toArray();
+
+    const foundIds = savedBlogs.map((b) => b._id.toString());
+    const validSavedIds = savedBlogIds.filter((id) =>
+      foundIds.includes(id.toString())
+    );
+
+    // If mismatch, update user document
+    if (validSavedIds.length !== savedBlogIds.length) {
+      await usersCollection.updateOne(
+        { _id: new ObjectId(userId) },
+        { $set: { savedBlogs: validSavedIds } }
+      );
+    }
 
     res.json({ success: true, data: savedBlogs });
   } catch (error) {

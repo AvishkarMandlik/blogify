@@ -93,7 +93,7 @@ const Navbar = () => {
                     </Dropdown.Item>
                   </>
                 )}
-                <Dropdown.Item as={Link} to="/dashboard?tab=blogs">
+                <Dropdown.Item as={Link} to="/dashboard?tab=myblogs">
                   <FaBlog className="me-2 text-info" /> My Blogs
                 </Dropdown.Item>
                 <Dropdown.Item as={Link} to="/dashboard?tab=saved">
