@@ -794,6 +794,62 @@ app.get("/likeCount", async (req, res) => {
   });
 })
 
+app.get("/likeDetails", async (req, res) => {
+  const { blogId } = req.query;
+  const blogsCollection = mongoConnection.getCollection('blogs');
+  const usersCollection = mongoConnection.getCollection('users');
+
+  try {
+    if (!ObjectId.isValid(blogId)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Invalid blog ID format" 
+      });
+    }
+
+    const blog = await blogsCollection.findOne({ _id: new ObjectId(blogId) });
+    if (!blog) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Blog not found" 
+      });
+    }
+
+    const processedLikes = (blog.likes || []).map(like => {
+      if (like instanceof ObjectId) {
+        return like;
+      }
+      try {
+        return new ObjectId(like);
+      } catch (e) {
+        console.error(`Invalid like ID: ${like}`);
+        return null;
+      }
+    }).filter(id => id !== null); // Remove invalid IDs
+
+    const likedUsers = await usersCollection
+      .find({ _id: { $in: processedLikes } })
+      .project({ username: 1, _id: 0 })
+      .toArray();
+
+    const usernames = likedUsers.map(user => user.username);
+
+    res.json({
+      success: true,
+      message: "Like details fetched successfully",
+      usernames: usernames || [],
+      count: usernames.length || 0 
+    });
+
+  } catch (error) {
+    console.error("Error in /likeDetails:", error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Server error",
+      error: error.message 
+    });
+  }
+});
 
 app.post('/addComment', async (req, res) => {
   const { blogId, userId, comment } = req.body;
