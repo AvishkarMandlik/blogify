@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
-import { FaHeart, FaRegHeart, FaBookmark, FaRegComment } from "react-icons/fa";
+import { FaHeart, FaRegHeart, FaBookmark, FaRegComment, FaUser } from "react-icons/fa";
 import { FiEdit } from "react-icons/fi";
 import { currentUser } from "../../util/currentUser";
 import CreateBlogModal from "./CreateBlogModal";
+import Swal from "sweetalert2";
+import { Modal, ListGroup, Button } from "react-bootstrap";
 
 export default function BlogCardHome({
   blogId,
@@ -25,6 +27,8 @@ export default function BlogCardHome({
   const [showCreate, setShowCreate] = useState(false);
   const [showCommentBox, setShowCommentBox] = useState(false);
   const [commentText, setCommentText] = useState("");
+  const [showLikesModal, setShowLikesModal] = useState(false);
+  const [likedUsernames, setLikedUsernames] = useState([]);
 
   const handleCreateSuccess = () => {
     window.location.reload();
@@ -109,6 +113,65 @@ export default function BlogCardHome({
     window.location.href = `/BlogContent?blogId=${blogId}`;
   };
 
+  const openLikeUsernames = async (blogId) => {
+  try {
+    const res = await axios.get("/likeDetails", { params: { blogId } });
+    
+    if (res.data.success) {
+      // Simply set the usernames without showing any warnings
+      setLikedUsernames(res.data.usernames || []);
+      setShowLikesModal(true);
+      
+      // Optional: Log the discrepancy for debugging (but don't show to users)
+      if (res.data.count !== res.data.usernames.length) {
+        console.log(`Like count discrepancy: ${res.data.count} total likes, ${res.data.usernames.length} valid usernames`);
+      }
+    } else {
+      throw new Error(res.data.message || "Failed to fetch likes");
+    }
+  } catch (err) {
+    console.error("Error fetching likes:", err);
+    Swal.fire({
+      icon: "error",
+      title: "Error",
+      text: err.response?.data?.message || "Failed to fetch likes",
+    });
+  }
+};
+
+  const LikeUsersModal = ({ show, onHide, usernames, totalCount }) => {
+    return (
+      <Modal show={show} onHide={onHide} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>
+      <FaHeart className="text-danger" /> by {usernames.length} {totalCount} users 
+    </Modal.Title>
+
+        </Modal.Header>
+        <Modal.Body>
+          <Modal.Title>People who liked this post</Modal.Title>
+          {usernames.length > 0 ? (
+            <ListGroup variant="flush">
+              {usernames.map((username, index) => (
+                <ListGroup.Item key={index}>
+                  <FaUser className="me-2" />
+                  {username} <FaHeart className="text-danger float-end" />
+                </ListGroup.Item>
+              ))}
+            </ListGroup>
+          ) : (
+            <p className="text-muted">No likes yet</p>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={onHide}>
+            Close
+          </Button>
+        </Modal.Footer>
+      </Modal>
+    );
+  };
+
   return (
     <div className="my-4 col-lg-12">
       <button
@@ -187,7 +250,7 @@ export default function BlogCardHome({
 
           <div className="d-flex justify-content-between align-items-center border-top pt-2">
             <div className="d-flex align-items-center gap-3">
-              <span
+             <span
                 onClick={handleLike}
                 style={{
                   cursor: "pointer",
@@ -196,7 +259,19 @@ export default function BlogCardHome({
                 }}
               >
                 {liked ? <FaHeart /> : <FaRegHeart />}
-                <span className="ms-1">{likeCount}</span>
+                <span 
+                  className="ms-1"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (likeCount > 0) openLikeUsernames(blogId);
+                  }}
+                  style={{ 
+                    cursor: likeCount > 0 ? "pointer" : "default",
+                    textDecoration: likeCount > 0 ? "underline" : "none"
+                  }}
+                >
+                  {likeCount}
+                </span>
               </span>
               <button
                 className="border-0 bg-transparent"
@@ -248,7 +323,11 @@ export default function BlogCardHome({
           </div>
         )}
       </div>
-
+<LikeUsersModal 
+        show={showLikesModal} 
+        onHide={() => setShowLikesModal(false)} 
+        usernames={likedUsernames} 
+      />
       <CreateBlogModal
         show={showCreate}
         onHide={() => setShowCreate(false)}
